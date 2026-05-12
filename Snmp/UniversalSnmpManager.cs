@@ -39,7 +39,11 @@ namespace SnmpMonitor.Snmp
         {
             try
             {
-                string oid = OidConfigLoader.GetScalarOid(category, name);
+                string baseOid = OidConfigLoader.GetScalarOid(category, name);
+                
+                // Для скалярных значений необходимо добавлять .0 к OID
+                string oid = baseOid.EndsWith(".0") ? baseOid : baseOid + ".0";
+                
                 _logger.Debug("Запрос OID: {0} ({1}.{2})", oid, category, name);
                 
                 var version = VersionCode.V2;
@@ -49,12 +53,16 @@ namespace SnmpMonitor.Snmp
                 
                 Messenger.Get(version, endPoint, communityParam, oidList, 5000);
                 
-                if (oidList.Count > 0)
+                if (oidList.Count > 0 && oidList[0].Data != null)
                 {
                     var variable = oidList[0];
                     string value = DecodeRawData(variable.Data);
                     _logger.Debug("Получено: {0} = {1}", oid, value);
                     return value;
+                }
+                else
+                {
+                    _logger.Warn("Пустой ответ для OID: {0}", oid);
                 }
             }
             catch (Exception ex)
