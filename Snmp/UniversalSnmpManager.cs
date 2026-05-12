@@ -47,7 +47,7 @@ namespace SnmpMonitor.Snmp
                 var communityParam = new OctetString(_community);
                 var oidList = new List<Variable> { new Variable(new ObjectIdentifier(oid)) };
                 
-                Messenger.Get(version, endPoint, communityParam, oidList);
+                Messenger.Get(version, endPoint, communityParam, oidList, 5000);
                 
                 if (oidList.Count > 0)
                 {
@@ -157,7 +157,7 @@ namespace SnmpMonitor.Snmp
                 var rootOidObj = new ObjectIdentifier(rootOid);
                 
                 var variables = new List<Variable>();
-                Messenger.Walk(version, endPoint, communityParam, rootOidObj, variables, WalkMode.WithinSubtree);
+                Messenger.Walk(version, endPoint, communityParam, rootOidObj, variables, 5000, WalkMode.WithinSubtree);
                 
                 if (variables.Count == 0) return result;
 
@@ -179,9 +179,11 @@ namespace SnmpMonitor.Snmp
                         string decodedValue;
                         
                         // Пробуем получить байты из OctetString напрямую для IP адреса
-                        if (variable.Data is OctetString octetStr && octetStr.ToByteArray().Length == 4)
+                        if (variable.Data is OctetString octetStr && octetStr.Length == 4)
                         {
-                            byte[] bytes = octetStr.ToByteArray();
+                            byte[] bytes = new byte[octetStr.Length];
+                            for (int i = 0; i < octetStr.Length; i++)
+                                bytes[i] = octetStr[i];
                             decodedValue = $"{bytes[0]}.{bytes[1]}.{bytes[2]}.{bytes[3]}";
                         }
                         // Пробуем декодировать IP адрес из индекса OID (альтернативный формат)
@@ -240,9 +242,11 @@ namespace SnmpMonitor.Snmp
                         string decodedValue;
                         
                         // Получаем байты из OctetString для MAC адреса (6 байт)
-                        if (variable.Data is OctetString macOctetStr && macOctetStr.ToByteArray().Length >= 6)
+                        if (variable.Data is OctetString macOctetStr && macOctetStr.Length >= 6)
                         {
-                            byte[] bytes = macOctetStr.ToByteArray();
+                            byte[] bytes = new byte[macOctetStr.Length];
+                            for (int i = 0; i < macOctetStr.Length; i++)
+                                bytes[i] = macOctetStr[i];
                             decodedValue = $"{bytes[0]:X2}-{bytes[1]:X2}-{bytes[2]:X2}-{bytes[3]:X2}-{bytes[4]:X2}-{bytes[5]:X2}";
                         }
                         else
@@ -270,19 +274,19 @@ namespace SnmpMonitor.Snmp
                         string? numericValue = null;
                         if (variable.Data is Gauge32 gauge32)
                         {
-                            numericValue = gauge32.Value.ToString();
+                            numericValue = gauge32.ToUInt32().ToString();
                         }
                         else if (variable.Data is Integer32 asnInt)
                         {
-                            numericValue = asnInt.Value.ToString();
+                            numericValue = asnInt.ToInt32().ToString();
                         }
                         else if (variable.Data is Counter32 counter32)
                         {
-                            numericValue = counter32.Value.ToString();
+                            numericValue = counter32.ToUInt32().ToString();
                         }
                         else if (variable.Data is Counter64 counter64)
                         {
-                            numericValue = counter64.Value.ToString();
+                            numericValue = counter64.ToUInt64().ToString();
                         }
                         else
                         {
@@ -515,25 +519,25 @@ namespace SnmpMonitor.Snmp
                 // Обработка Integer/Integer32 - возвращаем числовое значение
                 if (asnValue is Integer32 asnInt)
                 {
-                    return asnInt.Value.ToString();
+                    return asnInt.ToInt32().ToString();
                 }
                 
                 // Обработка Counter32
                 if (asnValue is Counter32 counter32)
                 {
-                    return counter32.Value.ToString();
+                    return counter32.ToUInt32().ToString();
                 }
                 
                 // Обработка Counter64 для больших чисел
                 if (asnValue is Counter64 counter64)
                 {
-                    return counter64.Value.ToString();
+                    return counter64.ToUInt64().ToString();
                 }
                 
                 // Обработка Gauge32
                 if (asnValue is Gauge32 gauge32)
                 {
-                    return gauge32.Value.ToString();
+                    return gauge32.ToUInt32().ToString();
                 }
                 
                 // Обработка OctetString - может содержать IP адрес в бинарном формате или текст
@@ -541,8 +545,10 @@ namespace SnmpMonitor.Snmp
                 {
                     try
                     {
-                        // Получаем байты через метод ToByteArray
-                        byte[] bytes = octetStr.ToByteArray();
+                        // Получаем байты через индексацию
+                        byte[] bytes = new byte[octetStr.Length];
+                        for (int i = 0; i < octetStr.Length; i++)
+                            bytes[i] = octetStr[i];
                         
                         // Проверяем, является ли это IP адресом (4 байта)
                         if (bytes.Length == 4)
@@ -600,7 +606,9 @@ namespace SnmpMonitor.Snmp
                 {
                     try
                     {
-                        byte[] bytes = octetStr.ToByteArray();
+                        byte[] bytes = new byte[octetStr.Length];
+                        for (int i = 0; i < octetStr.Length; i++)
+                            bytes[i] = octetStr[i];
                         return bytes;
                     }
                     catch { }
