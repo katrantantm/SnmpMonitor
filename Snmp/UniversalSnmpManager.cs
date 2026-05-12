@@ -52,7 +52,7 @@ namespace SnmpMonitor.Snmp
                 if (oidList.Count > 0)
                 {
                     var variable = oidList[0];
-                    string value = DecodeRawData(variable.Data.ToString(), variable.Data);
+                    string value = DecodeRawData(variable.Data);
                     _logger.Debug("Получено: {0} = {1}", oid, value);
                     return value;
                 }
@@ -188,8 +188,7 @@ namespace SnmpMonitor.Snmp
                             }
                             else
                             {
-                                string rawValueFallback = variable.Data.ToString();
-                                decodedValue = DecodeRawData(rawValueFallback, variable.Data);
+                                decodedValue = DecodeRawData(variable.Data);
                             }
                         }
                         // Пробуем декодировать IP адрес из индекса OID (альтернативный формат)
@@ -217,27 +216,23 @@ namespace SnmpMonitor.Snmp
                                     }
                                     else
                                     {
-                                        string rawValueFallback = variable.Data.ToString();
-                                        decodedValue = DecodeRawData(rawValueFallback, variable.Data);
+                                        decodedValue = DecodeRawData(variable.Data);
                                     }
                                 }
                                 catch
                                 {
-                                    string rawValueFallback = variable.Data.ToString();
-                                    decodedValue = DecodeRawData(rawValueFallback, variable.Data);
+                                    decodedValue = DecodeRawData(variable.Data);
                                 }
                             }
                             else
                             {
-                                string rawValueFallback = variable.Data.ToString();
-                                decodedValue = DecodeRawData(rawValueFallback, variable.Data);
+                                decodedValue = DecodeRawData(variable.Data);
                             }
                         }
                         else
                         {
                             // Стандартное декодирование
-                            string rawValue = variable.Data.ToString();
-                            decodedValue = DecodeRawData(rawValue, variable.Data);
+                            decodedValue = DecodeRawData(variable.Data);
                         }
                         
                         result[index] = decodedValue;
@@ -258,33 +253,13 @@ namespace SnmpMonitor.Snmp
                             else
                             {
                                 // Стандартное декодирование с попыткой извлечь байты
-                                string rawValue = variable.Data.ToString();
-                                byte[]? rawBytes = DecodeRawDataToBytes(rawValue, variable.Data);
-                                
-                                if (rawBytes != null && rawBytes.Length >= 6)
-                                {
-                                    decodedValue = $"{rawBytes[0]:X2}-{rawBytes[1]:X2}-{rawBytes[2]:X2}-{rawBytes[3]:X2}-{rawBytes[4]:X2}-{rawBytes[5]:X2}";
-                                }
-                                else
-                                {
-                                    decodedValue = rawValue;
-                                }
+                                decodedValue = DecodeRawData(variable.Data);
                             }
                         }
                         else
                         {
                             // Стандартное декодирование с попыткой извлечь байты
-                            string rawValue = variable.Data.ToString();
-                            byte[]? rawBytes = DecodeRawDataToBytes(rawValue, variable.Data);
-                            
-                            if (rawBytes != null && rawBytes.Length >= 6)
-                            {
-                                decodedValue = $"{rawBytes[0]:X2}-{rawBytes[1]:X2}-{rawBytes[2]:X2}-{rawBytes[3]:X2}-{rawBytes[4]:X2}-{rawBytes[5]:X2}";
-                            }
-                            else
-                            {
-                                decodedValue = rawValue;
-                            }
+                            decodedValue = DecodeRawData(variable.Data);
                         }
                         
                         result[index] = decodedValue;
@@ -313,8 +288,7 @@ namespace SnmpMonitor.Snmp
                         else
                         {
                             // Пытаемся получить строковое представление и распарсить
-                            string rawValue = variable.Data.ToString();
-                            numericValue = DecodeRawData(rawValue, variable.Data);
+                            numericValue = DecodeRawData(variable.Data);
                         }
                         
                         // Если numericValue все еще null или пустой, пробуем распарсить строку как число для форматирования
@@ -377,8 +351,7 @@ namespace SnmpMonitor.Snmp
                     else
                     {
                         // Декодирование с учетом кодировки и формата
-                        string rawValue = variable.Data.ToString();
-                        string decodedValue = DecodeRawData(rawValue, variable.Data);
+                        string decodedValue = DecodeRawData(variable.Data);
                         
                         // Применяем справочник значений (valueMapping) если указан
                         // valueMapping используется для преобразования числовых кодов в названия (например, ifType: 6 -> ethernetCsmacd)
@@ -531,87 +504,61 @@ namespace SnmpMonitor.Snmp
         /// <summary>
         /// Декодирование значения с поддержкой различных типов данных
         /// </summary>
-        private string DecodeRawData(string input, ISnmpData? asnValue = null)
+        private string DecodeRawData(ISnmpData asnValue)
         {
-            if (string.IsNullOrEmpty(input)) return input;
+            if (asnValue == null) return string.Empty;
             
-            // Проверяем тип ASN.1 для правильного декодирования
-            if (asnValue != null)
+            // Обработка Integer/Integer32 - возвращаем числовое значение
+            if (asnValue is Integer32 asnInt)
             {
-                // Обработка Integer/Integer32 - возвращаем числовое значение
-                if (asnValue is Integer32 asnInt)
-                {
-                    return asnInt.ToInt32().ToString();
-                }
-                
-                // Обработка Counter32
-                if (asnValue is Counter32 counter32)
-                {
-                    return counter32.ToUInt32().ToString();
-                }
-                
-                // Обработка Counter64 для больших чисел
-                if (asnValue is Counter64 counter64)
-                {
-                    return counter64.ToUInt64().ToString();
-                }
-                
-                // Обработка Gauge32
-                if (asnValue is Gauge32 gauge32)
-                {
-                    return gauge32.ToUInt32().ToString();
-                }
-                
-                // Обработка OctetString - может содержать IP адрес в бинарном формате или текст
-                if (asnValue is OctetString octetStr)
-                {
-                    try
-                    {
-                        // Получаем байты через метод ToBytes()
-                        byte[] bytes = octetStr.ToBytes();
-                        
-                        // Проверяем, является ли это IP адресом (4 байта)
-                        if (bytes.Length == 4)
-                        {
-                            return $"{bytes[0]}.{bytes[1]}.{bytes[2]}.{bytes[3]}";
-                        }
-                        
-                        if (bytes != null && bytes.Length > 0)
-                        {
-                            string utf8Str = Encoding.UTF8.GetString(bytes);
-                            // Проверяем, является ли строка читаемой
-                            if (utf8Str.Any(c => c >= 32 && c < 127) || utf8Str.All(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c) || char.IsPunctuation(c)))
-                                return utf8Str.Trim();
-                        }
-                    }
-                    catch { }
-                }
+                return asnInt.ToInt32().ToString();
             }
             
-            // Стандартная обработка шестнадцатеричных данных
-            if (input.Contains(".") || input.Contains(":")) return input;
-
-            string clean = input.Replace(" ", "");
-            if (IsHex(clean))
+            // Обработка Counter32
+            if (asnValue is Counter32 counter32)
+            {
+                return counter32.ToUInt32().ToString();
+            }
+            
+            // Обработка Counter64 для больших чисел
+            if (asnValue is Counter64 counter64)
+            {
+                return counter64.ToUInt64().ToString();
+            }
+            
+            // Обработка Gauge32
+            if (asnValue is Gauge32 gauge32)
+            {
+                return gauge32.ToUInt32().ToString();
+            }
+            
+            // Обработка OctetString - может содержать IP адрес в бинарном формате или текст
+            if (asnValue is OctetString octetStr)
             {
                 try
                 {
-                    byte[] data = new byte[clean.Length / 2];
-                    for (int i = 0; i < clean.Length; i += 2)
-                        data[i / 2] = Convert.ToByte(clean.Substring(i, 2), 16);
-
-                    if (data.Length == 6)
-                        return string.Join(":", data.Select(b => b.ToString("X2")));
-                    if (data.Length == 4)
-                        return string.Join(".", data);
-
-                    string decoded = Encoding.UTF8.GetString(data);
-                    if (decoded.All(c => c >= 32 || char.IsWhiteSpace(c)))
-                        return decoded.Trim();
+                    // Получаем байты через метод ToBytes()
+                    byte[] bytes = octetStr.ToBytes();
+                    
+                    // Проверяем, является ли это IP адресом (4 байта)
+                    if (bytes.Length == 4)
+                    {
+                        return $"{bytes[0]}.{bytes[1]}.{bytes[2]}.{bytes[3]}";
+                    }
+                    
+                    if (bytes != null && bytes.Length > 0)
+                    {
+                        string utf8Str = Encoding.UTF8.GetString(bytes);
+                        // Проверяем, является ли строка читаемой
+                        if (utf8Str.Any(c => c >= 32 && c < 127) || utf8Str.All(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c) || char.IsPunctuation(c)))
+                            return utf8Str.Trim();
+                    }
                 }
                 catch { }
             }
-            return input;
+            
+            // Возвращаем строковое представление для остальных типов
+            return asnValue.ToString() ?? string.Empty;
         }
 
         /// <summary>
