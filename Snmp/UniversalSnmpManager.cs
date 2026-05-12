@@ -45,9 +45,9 @@ namespace SnmpMonitor.Snmp
                 var version = VersionCode.V2;
                 var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), 161);
                 var communityParam = new OctetString(_community);
-                var oidList = new List<OID> { new OID(oid) };
+                var oidList = new List<Variable> { new Variable(new ObjectIdentifier(oid)) };
                 
-                var result = Messenger.Get(version, endPoint, communityParam, oidList, null);
+                var result = Messenger.Get(version, endPoint, communityParam, oidList, null!);
                 
                 if (result != null && result.Count > 0)
                 {
@@ -154,9 +154,9 @@ namespace SnmpMonitor.Snmp
                 var version = VersionCode.V2;
                 var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), 161);
                 var communityParam = new OctetString(_community);
-                var rootOidObj = new OID(rootOid);
+                var rootOidObj = new ObjectIdentifier(rootOid);
                 
-                var snmpResult = Messenger.Walk(version, endPoint, communityParam, rootOidObj, WalkMode.WithinSubtree, null);
+                var snmpResult = Messenger.Walk(version, endPoint, communityParam, rootOidObj, WalkMode.WithinSubtree, null!);
                 
                 if (snmpResult == null) return result;
 
@@ -178,7 +178,7 @@ namespace SnmpMonitor.Snmp
                         string decodedValue;
                         
                         // Пробуем получить байты из OctetString напрямую для IP адреса
-                        if (variable.Data is OctetString octetStr && octetStr.GetLength() == 4)
+                        if (variable.Data is OctetString octetStr && octetStr.Length == 4)
                         {
                             byte[] bytes = new byte[4];
                             for (int i = 0; i < 4; i++)
@@ -243,7 +243,7 @@ namespace SnmpMonitor.Snmp
                         string decodedValue;
                         
                         // Получаем байты из OctetString для MAC адреса (6 байт)
-                        if (variable.Data is OctetString macOctetStr && macOctetStr.GetLength() >= 6)
+                        if (variable.Data is OctetString macOctetStr && macOctetStr.Length >= 6)
                         {
                             byte[] bytes = new byte[6];
                             for (int i = 0; i < 6; i++)
@@ -274,22 +274,22 @@ namespace SnmpMonitor.Snmp
                     else if ((fieldType == "long" || fieldType == "int" || fieldType == "uint" || fieldType == "ulong"))
                     {
                         // Берем значение напрямую из числового типа SNMP
-                        string numericValue = null;
+                        string? numericValue = null;
                         if (variable.Data is Gauge32 gauge32)
                         {
-                            numericValue = gauge32.Value.ToString();
+                            numericValue = gauge32.UInt32.ToString();
                         }
                         else if (variable.Data is Integer32 asnInt)
                         {
-                            numericValue = asnInt.Value.ToString();
+                            numericValue = asnInt.ToInt32().ToString();
                         }
                         else if (variable.Data is Counter32 counter32)
                         {
-                            numericValue = counter32.Value.ToString();
+                            numericValue = counter32.UInt32.ToString();
                         }
                         else if (variable.Data is Counter64 counter64)
                         {
-                            numericValue = counter64.Value.ToString();
+                            numericValue = counter64.UInt64.ToString();
                         }
                         else
                         {
@@ -512,7 +512,7 @@ namespace SnmpMonitor.Snmp
         /// <summary>
         /// Декодирование значения с поддержкой различных типов данных
         /// </summary>
-        private string DecodeRawData(string input, ISnmpData asnValue = null)
+        private string DecodeRawData(string input, ISnmpData? asnValue = null)
         {
             if (string.IsNullOrEmpty(input)) return input;
             
@@ -522,25 +522,25 @@ namespace SnmpMonitor.Snmp
                 // Обработка Integer/Integer32 - возвращаем числовое значение
                 if (asnValue is Integer32 asnInt)
                 {
-                    return asnInt.Value.ToString();
+                    return asnInt.ToInt32().ToString();
                 }
                 
                 // Обработка Counter32
                 if (asnValue is Counter32 counter32)
                 {
-                    return counter32.Value.ToString();
+                    return counter32.UInt32.ToString();
                 }
                 
                 // Обработка Counter64 для больших чисел
                 if (asnValue is Counter64 counter64)
                 {
-                    return counter64.Value.ToString();
+                    return counter64.UInt64.ToString();
                 }
                 
                 // Обработка Gauge32
                 if (asnValue is Gauge32 gauge32)
                 {
-                    return gauge32.Value.ToString();
+                    return gauge32.UInt32.ToString();
                 }
                 
                 // Обработка OctetString - может содержать IP адрес в бинарном формате или текст
@@ -549,8 +549,8 @@ namespace SnmpMonitor.Snmp
                     try
                     {
                         // Получаем байты через индексатор или метод ToByteArray
-                        byte[] bytes = new byte[octetStr.GetLength()];
-                        for (int i = 0; i < octetStr.GetLength(); i++)
+                        byte[] bytes = new byte[octetStr.Length];
+                        for (int i = 0; i < octetStr.Length; i++)
                         {
                             bytes[i] = octetStr[i];
                         }
@@ -602,7 +602,7 @@ namespace SnmpMonitor.Snmp
         /// <summary>
         /// Декодирование значения в байты с поддержкой различных типов данных
         /// </summary>
-        private byte[]? DecodeRawDataToBytes(string input, ISnmpData asnValue = null)
+        private byte[]? DecodeRawDataToBytes(string input, ISnmpData? asnValue = null)
         {
             if (asnValue != null)
             {
@@ -611,8 +611,8 @@ namespace SnmpMonitor.Snmp
                 {
                     try
                     {
-                        byte[] bytes = new byte[octetStr.GetLength()];
-                        for (int i = 0; i < octetStr.GetLength(); i++)
+                        byte[] bytes = new byte[octetStr.Length];
+                        for (int i = 0; i < octetStr.Length; i++)
                         {
                             bytes[i] = octetStr[i];
                         }
