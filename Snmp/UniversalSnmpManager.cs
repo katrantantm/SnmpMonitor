@@ -179,12 +179,18 @@ namespace SnmpMonitor.Snmp
                         string decodedValue;
                         
                         // Пробуем получить байты из OctetString напрямую для IP адреса
-                        if (variable.Data is OctetString octetStr && octetStr.Length == 4)
+                        if (variable.Data is OctetString octetStr)
                         {
-                            byte[] bytes = new byte[octetStr.Length];
-                            for (int i = 0; i < octetStr.Length; i++)
-                                bytes[i] = octetStr[i];
-                            decodedValue = $"{bytes[0]}.{bytes[1]}.{bytes[2]}.{bytes[3]}";
+                            byte[] bytes = octetStr.ToBytes();
+                            if (bytes.Length == 4)
+                            {
+                                decodedValue = $"{bytes[0]}.{bytes[1]}.{bytes[2]}.{bytes[3]}";
+                            }
+                            else
+                            {
+                                string rawValueFallback = variable.Data.ToString();
+                                decodedValue = DecodeRawData(rawValueFallback, variable.Data);
+                            }
                         }
                         // Пробуем декодировать IP адрес из индекса OID (альтернативный формат)
                         else if (index.Contains("."))
@@ -242,12 +248,28 @@ namespace SnmpMonitor.Snmp
                         string decodedValue;
                         
                         // Получаем байты из OctetString для MAC адреса (6 байт)
-                        if (variable.Data is OctetString macOctetStr && macOctetStr.Length >= 6)
+                        if (variable.Data is OctetString macOctetStr)
                         {
-                            byte[] bytes = new byte[macOctetStr.Length];
-                            for (int i = 0; i < macOctetStr.Length; i++)
-                                bytes[i] = macOctetStr[i];
-                            decodedValue = $"{bytes[0]:X2}-{bytes[1]:X2}-{bytes[2]:X2}-{bytes[3]:X2}-{bytes[4]:X2}-{bytes[5]:X2}";
+                            byte[] bytes = macOctetStr.ToBytes();
+                            if (bytes.Length >= 6)
+                            {
+                                decodedValue = $"{bytes[0]:X2}-{bytes[1]:X2}-{bytes[2]:X2}-{bytes[3]:X2}-{bytes[4]:X2}-{bytes[5]:X2}";
+                            }
+                            else
+                            {
+                                // Стандартное декодирование с попыткой извлечь байты
+                                string rawValue = variable.Data.ToString();
+                                byte[] rawBytes = DecodeRawDataToBytes(rawValue, variable.Data);
+                                
+                                if (rawBytes != null && rawBytes.Length >= 6)
+                                {
+                                    decodedValue = $"{rawBytes[0]:X2}-{rawBytes[1]:X2}-{rawBytes[2]:X2}-{rawBytes[3]:X2}-{rawBytes[4]:X2}-{rawBytes[5]:X2}";
+                                }
+                                else
+                                {
+                                    decodedValue = rawValue;
+                                }
+                            }
                         }
                         else
                         {
@@ -545,10 +567,8 @@ namespace SnmpMonitor.Snmp
                 {
                     try
                     {
-                        // Получаем байты через индексацию
-                        byte[] bytes = new byte[octetStr.Length];
-                        for (int i = 0; i < octetStr.Length; i++)
-                            bytes[i] = octetStr[i];
+                        // Получаем байты через метод ToBytes()
+                        byte[] bytes = octetStr.ToBytes();
                         
                         // Проверяем, является ли это IP адресом (4 байта)
                         if (bytes.Length == 4)
@@ -606,10 +626,7 @@ namespace SnmpMonitor.Snmp
                 {
                     try
                     {
-                        byte[] bytes = new byte[octetStr.Length];
-                        for (int i = 0; i < octetStr.Length; i++)
-                            bytes[i] = octetStr[i];
-                        return bytes;
+                        return octetStr.ToBytes();
                     }
                     catch { }
                 }
