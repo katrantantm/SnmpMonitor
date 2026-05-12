@@ -42,6 +42,7 @@ namespace SnmpMonitor.Snmp
                 string baseOid = OidConfigLoader.GetScalarOid(category, name);
                 
                 // Для скалярных значений необходимо добавлять .0 к OID
+                // Проверяем, есть ли уже .0 в конце OID (из конфигурации)
                 string oid = baseOid.EndsWith(".0") ? baseOid : baseOid + ".0";
                 
                 _logger.Debug("Запрос OID: {0} ({1}.{2})", oid, category, name);
@@ -56,20 +57,25 @@ namespace SnmpMonitor.Snmp
                 if (oidList.Count > 0 && oidList[0].Data != null)
                 {
                     var variable = oidList[0];
+                    // Передаем сам объект ISnmpData для декодирования
                     string value = DecodeRawData(variable.Data);
                     _logger.Debug("Получено: {0} = {1}", oid, value);
                     return value;
                 }
-                else
+                else if (oidList.Count > 0)
                 {
                     _logger.Warn("Пустой ответ для OID: {0}", oid);
+                }
+                else
+                {
+                    _logger.Warn("Список переменных пуст для OID: {0}", oid);
                 }
             }
             catch (Exception ex)
             {
-                _logger.Warn("Ошибка при запросе {0}.{1}: {2}", category, name, ex.Message);
+                _logger.Error("Ошибка при запросе {0}.{1}: {2}", category, name, ex);
             }
-            return null!;
+            return "No Data";
         }
 
         /// <summary>
@@ -181,56 +187,46 @@ namespace SnmpMonitor.Snmp
                         // Просто возвращаем индекс как есть (число или строка)
                         result[index] = index;
                     }
-                    // Для полей типа "ipaddr" декодируем IP адрес из значения
+                    // Для полей типа "ipaddr" декодируем IP адрес
                     else if (fieldType == "ipaddr")
                     {
                         string decodedValue;
                         
-                        // Пробуем получить байты из OctetString напрямую для IP адреса
+                        // Сначала пробуем декодировать IP адрес из индекса OID (основной формат для ARP и routing таблиц)
+                        // Индекс может быть в формате ".192.168.1.1" или бинарном представлении
+                        if (index.Contains(".") || index.Length >= 4)
+                        {
+                            decodedValue = DecodeIndexToIpAddress(index);
+                            
+                            // Если успешно декодировали (получили формат x.x.x.x), используем это значение
+                            if (decodedValue.Contains(".") && decodedValue.Split('.').Length == 4)
+                            {
+                                byte[] testOctets = new byte[4];
+                                bool isValid = true;
+                                var parts = decodedValue.Split('.');
+                                for (int i = 0; i < 4; i++)
+                                {
+                                    if (!byte.TryParse(parts[i], out testOctets[i]))
+                                    {
+                                        isValid = false;
+                                        break;
+                                    }
+                                }
+                                if (isValid)
+                                {
+                                    result[index] = decodedValue;
+                                    continue;
+                                }
+                            }
+                        }
+                        
+                        // Если не получилось из индекса, пробуем получить байты из OctetString напрямую
                         if (variable.Data is OctetString octetStr)
                         {
                             byte[] bytes = octetStr.ToBytes();
                             if (bytes.Length == 4)
                             {
                                 decodedValue = $"{bytes[0]}.{bytes[1]}.{bytes[2]}.{bytes[3]}";
-                            }
-                            else
-                            {
-                                decodedValue = DecodeRawData(variable.Data);
-                            }
-                        }
-                        // Пробуем декодировать IP адрес из индекса OID (альтернативный формат)
-                        else if (index.Contains("."))
-                        {
-                            // IP адрес закодирован в индексе OID (например, .192.168.1.1)
-                            string[] parts = index.Split('.');
-                            if (parts.Length >= 4)
-                            {
-                                try
-                                {
-                                    byte[] octets = new byte[4];
-                                    bool allParsed = true;
-                                    for (int i = 0; i < 4; i++)
-                                    {
-                                        if (!byte.TryParse(parts[i], out octets[i]))
-                                        {
-                                            allParsed = false;
-                                            break;
-                                        }
-                                    }
-                                    if (allParsed)
-                                    {
-                                        decodedValue = $"{octets[0]}.{octets[1]}.{octets[2]}.{octets[3]}";
-                                    }
-                                    else
-                                    {
-                                        decodedValue = DecodeRawData(variable.Data);
-                                    }
-                                }
-                                catch
-                                {
-                                    decodedValue = DecodeRawData(variable.Data);
-                                }
                             }
                             else
                             {
