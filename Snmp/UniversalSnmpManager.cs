@@ -47,11 +47,11 @@ namespace SnmpMonitor.Snmp
                 var communityParam = new OctetString(_community);
                 var oidList = new List<Variable> { new Variable(new ObjectIdentifier(oid)) };
                 
-                var result = Messenger.Get(version, endPoint, communityParam, oidList, null!);
+                Messenger.Get(version, endPoint, communityParam, oidList);
                 
-                if (result != null && result.Count > 0)
+                if (oidList.Count > 0)
                 {
-                    var variable = result[0];
+                    var variable = oidList[0];
                     string value = DecodeRawData(variable.Data.ToString(), variable.Data);
                     _logger.Debug("Получено: {0} = {1}", oid, value);
                     return value;
@@ -156,11 +156,12 @@ namespace SnmpMonitor.Snmp
                 var communityParam = new OctetString(_community);
                 var rootOidObj = new ObjectIdentifier(rootOid);
                 
-                var snmpResult = Messenger.Walk(version, endPoint, communityParam, rootOidObj, WalkMode.WithinSubtree, null!);
+                var variables = new List<Variable>();
+                Messenger.Walk(version, endPoint, communityParam, rootOidObj, variables, WalkMode.WithinSubtree);
                 
-                if (snmpResult == null) return result;
+                if (variables.Count == 0) return result;
 
-                foreach (var variable in snmpResult)
+                foreach (var variable in variables)
                 {
                     string fullOid = variable.Id.ToString();
                     string index = fullOid.Substring(rootOid.Length);
@@ -178,13 +179,9 @@ namespace SnmpMonitor.Snmp
                         string decodedValue;
                         
                         // Пробуем получить байты из OctetString напрямую для IP адреса
-                        if (variable.Data is OctetString octetStr && octetStr.Length == 4)
+                        if (variable.Data is OctetString octetStr && octetStr.ToByteArray().Length == 4)
                         {
-                            byte[] bytes = new byte[4];
-                            for (int i = 0; i < 4; i++)
-                            {
-                                bytes[i] = octetStr[i];
-                            }
+                            byte[] bytes = octetStr.ToByteArray();
                             decodedValue = $"{bytes[0]}.{bytes[1]}.{bytes[2]}.{bytes[3]}";
                         }
                         // Пробуем декодировать IP адрес из индекса OID (альтернативный формат)
@@ -243,13 +240,9 @@ namespace SnmpMonitor.Snmp
                         string decodedValue;
                         
                         // Получаем байты из OctetString для MAC адреса (6 байт)
-                        if (variable.Data is OctetString macOctetStr && macOctetStr.Length >= 6)
+                        if (variable.Data is OctetString macOctetStr && macOctetStr.ToByteArray().Length >= 6)
                         {
-                            byte[] bytes = new byte[6];
-                            for (int i = 0; i < 6; i++)
-                            {
-                                bytes[i] = macOctetStr[i];
-                            }
+                            byte[] bytes = macOctetStr.ToByteArray();
                             decodedValue = $"{bytes[0]:X2}-{bytes[1]:X2}-{bytes[2]:X2}-{bytes[3]:X2}-{bytes[4]:X2}-{bytes[5]:X2}";
                         }
                         else
@@ -277,19 +270,19 @@ namespace SnmpMonitor.Snmp
                         string? numericValue = null;
                         if (variable.Data is Gauge32 gauge32)
                         {
-                            numericValue = gauge32.UInt32.ToString();
+                            numericValue = gauge32.Value.ToString();
                         }
                         else if (variable.Data is Integer32 asnInt)
                         {
-                            numericValue = asnInt.ToInt32().ToString();
+                            numericValue = asnInt.Value.ToString();
                         }
                         else if (variable.Data is Counter32 counter32)
                         {
-                            numericValue = counter32.UInt32.ToString();
+                            numericValue = counter32.Value.ToString();
                         }
                         else if (variable.Data is Counter64 counter64)
                         {
-                            numericValue = counter64.UInt64.ToString();
+                            numericValue = counter64.Value.ToString();
                         }
                         else
                         {
@@ -522,25 +515,25 @@ namespace SnmpMonitor.Snmp
                 // Обработка Integer/Integer32 - возвращаем числовое значение
                 if (asnValue is Integer32 asnInt)
                 {
-                    return asnInt.ToInt32().ToString();
+                    return asnInt.Value.ToString();
                 }
                 
                 // Обработка Counter32
                 if (asnValue is Counter32 counter32)
                 {
-                    return counter32.UInt32.ToString();
+                    return counter32.Value.ToString();
                 }
                 
                 // Обработка Counter64 для больших чисел
                 if (asnValue is Counter64 counter64)
                 {
-                    return counter64.UInt64.ToString();
+                    return counter64.Value.ToString();
                 }
                 
                 // Обработка Gauge32
                 if (asnValue is Gauge32 gauge32)
                 {
-                    return gauge32.UInt32.ToString();
+                    return gauge32.Value.ToString();
                 }
                 
                 // Обработка OctetString - может содержать IP адрес в бинарном формате или текст
@@ -548,12 +541,8 @@ namespace SnmpMonitor.Snmp
                 {
                     try
                     {
-                        // Получаем байты через индексатор или метод ToByteArray
-                        byte[] bytes = new byte[octetStr.Length];
-                        for (int i = 0; i < octetStr.Length; i++)
-                        {
-                            bytes[i] = octetStr[i];
-                        }
+                        // Получаем байты через метод ToByteArray
+                        byte[] bytes = octetStr.ToByteArray();
                         
                         // Проверяем, является ли это IP адресом (4 байта)
                         if (bytes.Length == 4)
@@ -611,11 +600,7 @@ namespace SnmpMonitor.Snmp
                 {
                     try
                     {
-                        byte[] bytes = new byte[octetStr.Length];
-                        for (int i = 0; i < octetStr.Length; i++)
-                        {
-                            bytes[i] = octetStr[i];
-                        }
+                        byte[] bytes = octetStr.ToByteArray();
                         return bytes;
                     }
                     catch { }
