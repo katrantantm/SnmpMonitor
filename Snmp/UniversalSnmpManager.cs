@@ -1,11 +1,13 @@
 #nullable enable
-using SnmpSharpNet;
+using Lextm.SharpSnmpLib;
+using Lextm.SharpSnmpLib.Messaging;
 using SnmpMonitor.Config;
 using SnmpMonitor.Logging;
 using SnmpMonitor.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -40,12 +42,17 @@ namespace SnmpMonitor.Snmp
                 string oid = OidConfigLoader.GetScalarOid(category, name);
                 _logger.Debug("Запрос OID: {0} ({1}.{2})", oid, category, name);
                 
-                SimpleSnmp snmp = new(_targetIp, _community);
-                Dictionary<Oid, AsnType> result = snmp.Get(SnmpVersion.Ver2, new[] { oid });
+                var version = VersionCode.V2;
+                var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), 161);
+                var communityParam = new OctetString(_community);
+                var oidList = new List<OID> { new OID(oid) };
+                
+                var result = Messenger.Get(version, endPoint, communityParam, oidList, null);
                 
                 if (result != null && result.Count > 0)
                 {
-                    string value = DecodeRawData(result.First().Value.ToString(), result.First().Value);
+                    var variable = result[0];
+                    string value = DecodeRawData(variable.Data.ToString(), variable.Data);
                     _logger.Debug("Получено: {0} = {1}", oid, value);
                     return value;
                 }
@@ -144,14 +151,18 @@ namespace SnmpMonitor.Snmp
             
             try
             {
-                SimpleSnmp snmp = new(_targetIp, _community);
-                Dictionary<Oid, AsnType> snmpResult = snmp.Walk(SnmpVersion.Ver2, rootOid);
+                var version = VersionCode.V2;
+                var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), 161);
+                var communityParam = new OctetString(_community);
+                var rootOidObj = new OID(rootOid);
+                
+                var snmpResult = Messenger.Walk(version, endPoint, communityParam, rootOidObj, WalkMode.WithinSubtree, null);
                 
                 if (snmpResult == null) return result;
 
-                foreach (var kvp in snmpResult)
+                foreach (var variable in snmpResult)
                 {
-                    string fullOid = kvp.Key.ToString();
+                    string fullOid = variable.Id.ToString();
                     string index = fullOid.Substring(rootOid.Length);
                     if (index.StartsWith(".")) index = index.Substring(1);
                     
@@ -167,7 +178,7 @@ namespace SnmpMonitor.Snmp
                         string decodedValue;
                         
                         // Пробуем получить байты из OctetString напрямую для IP адреса
-                        if (kvp.Value is OctetString octetStr && octetStr.Length == 4)
+                        if (variable.Data is OctetString octetStr && octetStr.GetLength() == 4)
                         {
                             byte[] bytes = new byte[4];
                             for (int i = 0; i < 4; i++)
@@ -201,27 +212,27 @@ namespace SnmpMonitor.Snmp
                                     }
                                     else
                                     {
-                                        string rawValueFallback = kvp.Value.ToString();
-                                        decodedValue = DecodeRawData(rawValueFallback, kvp.Value);
+                                        string rawValueFallback = variable.Data.ToString();
+                                        decodedValue = DecodeRawData(rawValueFallback, variable.Data);
                                     }
                                 }
                                 catch
                                 {
-                                    string rawValueFallback = kvp.Value.ToString();
-                                    decodedValue = DecodeRawData(rawValueFallback, kvp.Value);
+                                    string rawValueFallback = variable.Data.ToString();
+                                    decodedValue = DecodeRawData(rawValueFallback, variable.Data);
                                 }
                             }
                             else
                             {
-                                string rawValueFallback = kvp.Value.ToString();
-                                decodedValue = DecodeRawData(rawValueFallback, kvp.Value);
+                                string rawValueFallback = variable.Data.ToString();
+                                decodedValue = DecodeRawData(rawValueFallback, variable.Data);
                             }
                         }
                         else
                         {
                             // Стандартное декодирование
-                            string rawValue = kvp.Value.ToString();
-                            decodedValue = DecodeRawData(rawValue, kvp.Value);
+                            string rawValue = variable.Data.ToString();
+                            decodedValue = DecodeRawData(rawValue, variable.Data);
                         }
                         
                         result[index] = decodedValue;
@@ -232,7 +243,7 @@ namespace SnmpMonitor.Snmp
                         string decodedValue;
                         
                         // Получаем байты из OctetString для MAC адреса (6 байт)
-                        if (kvp.Value is OctetString macOctetStr && macOctetStr.Length >= 6)
+                        if (variable.Data is OctetString macOctetStr && macOctetStr.GetLength() >= 6)
                         {
                             byte[] bytes = new byte[6];
                             for (int i = 0; i < 6; i++)
@@ -244,8 +255,8 @@ namespace SnmpMonitor.Snmp
                         else
                         {
                             // Стандартное декодирование с попыткой извлечь байты
-                            string rawValue = kvp.Value.ToString();
-                            byte[] rawBytes = DecodeRawDataToBytes(rawValue, kvp.Value);
+                            string rawValue = variable.Data.ToString();
+                            byte[] rawBytes = DecodeRawDataToBytes(rawValue, variable.Data);
                             
                             if (rawBytes != null && rawBytes.Length >= 6)
                             {
@@ -264,33 +275,33 @@ namespace SnmpMonitor.Snmp
                     {
                         // Берем значение напрямую из числового типа SNMP
                         string numericValue = null;
-                        if (kvp.Value is Gauge32 gauge32)
+                        if (variable.Data is Gauge32 gauge32)
                         {
                             numericValue = gauge32.Value.ToString();
                         }
-                        else if (kvp.Value is Integer32 asnInt)
+                        else if (variable.Data is Integer32 asnInt)
                         {
                             numericValue = asnInt.Value.ToString();
                         }
-                        else if (kvp.Value is Counter32 counter32)
+                        else if (variable.Data is Counter32 counter32)
                         {
                             numericValue = counter32.Value.ToString();
                         }
-                        else if (kvp.Value is Counter64 counter64)
+                        else if (variable.Data is Counter64 counter64)
                         {
                             numericValue = counter64.Value.ToString();
                         }
                         else
                         {
                             // Пытаемся получить строковое представление и распарсить
-                            string rawValue = kvp.Value.ToString();
-                            numericValue = DecodeRawData(rawValue, kvp.Value);
+                            string rawValue = variable.Data.ToString();
+                            numericValue = DecodeRawData(rawValue, variable.Data);
                         }
                         
                         // Если numericValue все еще null или пустой, пробуем распарсить строку как число для форматирования
                         if (string.IsNullOrEmpty(numericValue) && !string.IsNullOrEmpty(format))
                         {
-                            string rawValue = kvp.Value.ToString();
+                            string rawValue = variable.Data.ToString();
                             // Пытаемся распарсить сырую строку как число
                             if (ulong.TryParse(rawValue, out ulong parsedValue))
                             {
@@ -330,7 +341,7 @@ namespace SnmpMonitor.Snmp
                     // Для полей типа oid с valueMapping
                     else if (fieldType == "oid" && valueMapping != null)
                     {
-                        string rawValue = kvp.Value.ToString();
+                        string rawValue = variable.Data.ToString();
                         // OID может приходить с ведущей точкой или без - нормализуем
                         string decodedValue = rawValue.TrimStart('.');
                         
@@ -347,8 +358,8 @@ namespace SnmpMonitor.Snmp
                     else
                     {
                         // Декодирование с учетом кодировки и формата
-                        string rawValue = kvp.Value.ToString();
-                        string decodedValue = DecodeRawData(rawValue, kvp.Value);
+                        string rawValue = variable.Data.ToString();
+                        string decodedValue = DecodeRawData(rawValue, variable.Data);
                         
                         // Применяем справочник значений (valueMapping) если указан
                         // valueMapping используется для преобразования числовых кодов в названия (например, ifType: 6 -> ethernetCsmacd)
@@ -501,7 +512,7 @@ namespace SnmpMonitor.Snmp
         /// <summary>
         /// Декодирование значения с поддержкой различных типов данных
         /// </summary>
-        private string DecodeRawData(string input, AsnType asnValue = null)
+        private string DecodeRawData(string input, ISnmpData asnValue = null)
         {
             if (string.IsNullOrEmpty(input)) return input;
             
@@ -538,8 +549,8 @@ namespace SnmpMonitor.Snmp
                     try
                     {
                         // Получаем байты через индексатор или метод ToByteArray
-                        byte[] bytes = new byte[octetStr.Length];
-                        for (int i = 0; i < octetStr.Length; i++)
+                        byte[] bytes = new byte[octetStr.GetLength()];
+                        for (int i = 0; i < octetStr.GetLength(); i++)
                         {
                             bytes[i] = octetStr[i];
                         }
@@ -591,7 +602,7 @@ namespace SnmpMonitor.Snmp
         /// <summary>
         /// Декодирование значения в байты с поддержкой различных типов данных
         /// </summary>
-        private byte[]? DecodeRawDataToBytes(string input, AsnType asnValue = null)
+        private byte[]? DecodeRawDataToBytes(string input, ISnmpData asnValue = null)
         {
             if (asnValue != null)
             {
@@ -600,8 +611,8 @@ namespace SnmpMonitor.Snmp
                 {
                     try
                     {
-                        byte[] bytes = new byte[octetStr.Length];
-                        for (int i = 0; i < octetStr.Length; i++)
+                        byte[] bytes = new byte[octetStr.GetLength()];
+                        for (int i = 0; i < octetStr.GetLength(); i++)
                         {
                             bytes[i] = octetStr[i];
                         }
