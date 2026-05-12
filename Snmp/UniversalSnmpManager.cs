@@ -259,7 +259,7 @@ namespace SnmpMonitor.Snmp
                             {
                                 // Стандартное декодирование с попыткой извлечь байты
                                 string rawValue = variable.Data.ToString();
-                                byte[] rawBytes = DecodeRawDataToBytes(rawValue, variable.Data);
+                                byte[]? rawBytes = DecodeRawDataToBytes(rawValue, variable.Data);
                                 
                                 if (rawBytes != null && rawBytes.Length >= 6)
                                 {
@@ -275,7 +275,7 @@ namespace SnmpMonitor.Snmp
                         {
                             // Стандартное декодирование с попыткой извлечь байты
                             string rawValue = variable.Data.ToString();
-                            byte[] rawBytes = DecodeRawDataToBytes(rawValue, variable.Data);
+                            byte[]? rawBytes = DecodeRawDataToBytes(rawValue, variable.Data);
                             
                             if (rawBytes != null && rawBytes.Length >= 6)
                             {
@@ -365,7 +365,7 @@ namespace SnmpMonitor.Snmp
                         string decodedValue = rawValue.TrimStart('.');
                         
                         // Пробуем найти в справочнике сначала как есть, затем с ведущей точкой
-                        string mappedValue;
+                        string? mappedValue = null;
                         if (!valueMapping.TryGetValue(decodedValue, out mappedValue))
                         {
                             string altKey = rawValue.StartsWith(".") ? rawValue.Substring(1) : "." + rawValue;
