@@ -549,9 +549,24 @@ namespace SnmpMonitor.Snmp
                     if (bytes != null && bytes.Length > 0)
                     {
                         string utf8Str = Encoding.UTF8.GetString(bytes);
-                        // Проверяем, является ли строка читаемой
-                        if (utf8Str.Any(c => c >= 32 && c < 127) || utf8Str.All(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c) || char.IsPunctuation(c)))
-                            return utf8Str.Trim();
+                        
+                        // Очистка от непечатаемых символов и управляющих кодов
+                        // Удаляем все символы категории Control (C) и Format (F), кроме обычных пробелов
+                        var cleanChars = new List<char>();
+                        foreach (char c in utf8Str)
+                        {
+                            // Разрешаем печатаемые символы и обычный пробел
+                            if (!char.IsControl(c) && !(char.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.Format))
+                            {
+                                cleanChars.Add(c);
+                            }
+                        }
+                        
+                        string cleanedStr = new string(cleanChars.ToArray()).Trim();
+                        
+                        // Если строка содержит хотя бы один читаемый символ, возвращаем её
+                        if (cleanedStr.Any(c => c >= 32 && c < 127) || cleanedStr.All(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c) || char.IsPunctuation(c)))
+                            return cleanedStr;
                     }
                 }
                 catch { }
