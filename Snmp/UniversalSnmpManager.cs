@@ -43,7 +43,9 @@ namespace SnmpMonitor.Snmp
                 
                 // Для скалярных значений необходимо добавлять .0 к OID
                 // Проверяем, есть ли уже .0 в конце OID (из конфигурации)
-                string oid = baseOid.EndsWith(".0") ? baseOid : baseOid + ".0";
+                // Важно: OID в конфигурации могут быть с ведущей точкой, удаляем её для корректной проверки
+                string cleanOid = baseOid.TrimStart('.');
+                string oid = cleanOid.EndsWith(".0") ? cleanOid : cleanOid + ".0";
                 
                 _logger.Debug("Запрос OID: {0} ({1}.{2})", oid, category, name);
                 
@@ -165,10 +167,13 @@ namespace SnmpMonitor.Snmp
             
             try
             {
+                // Очищаем OID от ведущей точки для корректной работы SNMP библиотеки
+                string cleanOid = rootOid.TrimStart('.');
+                
                 var version = VersionCode.V2;
                 var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), 161);
                 var communityParam = new OctetString(_community);
-                var rootOidObj = new ObjectIdentifier(rootOid);
+                var rootOidObj = new ObjectIdentifier(cleanOid);
                 
                 var variables = new List<Variable>();
                 Messenger.Walk(version, endPoint, communityParam, rootOidObj, variables, 5000, WalkMode.WithinSubtree);
@@ -178,7 +183,7 @@ namespace SnmpMonitor.Snmp
                 foreach (var variable in variables)
                 {
                     string fullOid = variable.Id.ToString();
-                    string index = fullOid.Substring(rootOid.Length);
+                    string index = fullOid.Substring(cleanOid.Length);
                     if (index.StartsWith(".")) index = index.Substring(1);
                     
                     // Для полей типа "index" значение берётся из индекса OID
