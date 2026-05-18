@@ -1,1 +1,54 @@
-Nothing should be ignored based on the provided file changes. The only modified file is 'Snmp/UniversalSnmpManager.cs', which is a source code file and should not be added to .gitignore.
+```
+# Build artifacts
+obj/
+bin/
+*.dll
+*.exe
+*.pdb
+*.so
+*.dylib
+*.jar
+*.war
+*.class
+*.o
+*.obj
+*.out
+
+# Dependencies
+packages/
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.egg-info/
+.Python
+.env
+.env.local
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Test and coverage
+coverage/
+htmlcov/
+.coverage
+*.coverage
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Distribution / packaging
+dist/
+build/
+target/
+```
