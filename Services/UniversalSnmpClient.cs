@@ -212,11 +212,10 @@ namespace SnmpMonitor.Services
             // Handle 'ipaddr' type
             if (fieldType == "ipaddr")
             {
-                string decodedValue = _decoder.DecodeIndexToIpAddress(index);
-                
+
                 // Validate IP format
-                if (IsValidIpAddress(decodedValue))
-                    return decodedValue;
+                if (IsValidIpAddress(_decoder.DecodeIndexToIpAddress(index)))
+                    return _decoder.DecodeIndexToIpAddress(index);
                 
                 // Try to get bytes from OctetString
                 if (variable.Data is OctetString octetStr)
