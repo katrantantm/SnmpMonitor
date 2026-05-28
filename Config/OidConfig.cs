@@ -103,9 +103,9 @@ namespace SnmpMonitor.Config
         }
 
         /// <summary>
-        /// Загрузить справочник значений из файла oid-mappings.json
+        /// Загрузить справочник значений из файла oid-mappings.json для конкретного ключа маппинга
         /// </summary>
-        public static Dictionary<string, string>? LoadValueMapping(string? mappingFileName, string? baseDir = null)
+        public static Dictionary<string, string>? LoadValueMapping(string? mappingFileName, string? mappingKey = null, string? baseDir = null)
         {
             if (string.IsNullOrEmpty(mappingFileName))
                 return null;
@@ -125,10 +125,16 @@ namespace SnmpMonitor.Config
                 }
 
                 string json = File.ReadAllText(fullPath);
-                var allMappings = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, string>>>(json);
+                var allMappings = JsonConvert.DeserializeObject<Dictionary<string, MappingEntry>>(json);
                 
-                // Возвращаем все маппинги плоским списком
-                return allMappings?.SelectMany(kvp => kvp.Value)
+                // Если указан конкретный ключ маппинга, возвращаем только его значения
+                if (!string.IsNullOrEmpty(mappingKey) && allMappings != null && allMappings.ContainsKey(mappingKey))
+                {
+                    return allMappings[mappingKey].Values;
+                }
+                
+                // Если ключ не указан, возвращаем все маппинги плоским списком (для совместимости)
+                return allMappings?.SelectMany(kvp => kvp.Value.Values)
                     .ToDictionary(k => k.Key, v => v.Value);
             }
             catch (Exception ex)
@@ -136,6 +142,16 @@ namespace SnmpMonitor.Config
                 Console.WriteLine($"❌ Ошибка загрузки маппинга '{mappingFileName}': {ex.Message}");
                 return null;
             }
+        }
+        
+        /// <summary>
+        /// Класс для десериализации записи маппинга
+        /// </summary>
+        private class MappingEntry
+        {
+            public string Description { get; set; } = "";
+            public string Type { get; set; } = "";
+            public Dictionary<string, string> Values { get; set; } = new();
         }
 
         /// <summary>

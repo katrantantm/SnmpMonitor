@@ -164,7 +164,7 @@ namespace SnmpMonitor.Snmp
                     Dictionary<string, string>? fieldValueMap = null;
                     if (!string.IsNullOrEmpty(column.MappingKey))
                     {
-                        fieldValueMap = OidConfigLoader.LoadValueMapping("Config/oid-mappings.json");
+                        fieldValueMap = OidConfigLoader.LoadValueMapping("Config/oid-mappings.json", column.MappingKey);
                     }
                     
                     var walkResult = WalkSingleField(column.Oid, column.Type, column.Format, column.MappingKey, fieldValueMap);
@@ -291,7 +291,7 @@ namespace SnmpMonitor.Snmp
                         result[index] = decodedValue;
                     }
                     // Для полей типа "macaddress" декодируем MAC адрес из OctetString
-                    else if (format == "macaddress")
+                    else if (format != null && format.ToLower() == "macaddress")
                     {
                         string decodedValue;
                         
@@ -301,7 +301,7 @@ namespace SnmpMonitor.Snmp
                             byte[] bytes = macOctetStr.ToBytes();
                             if (bytes.Length >= 6)
                             {
-                                decodedValue = $"{bytes[0]:X2}-{bytes[1]:X2}-{bytes[2]:X2}-{bytes[3]:X2}-{bytes[4]:X2}-{bytes[5]:X2}";
+                                decodedValue = $"{bytes[0]:X2}:{bytes[1]:X2}:{bytes[2]:X2}:{bytes[3]:X2}:{bytes[4]:X2}:{bytes[5]:X2}";
                             }
                             else
                             {
