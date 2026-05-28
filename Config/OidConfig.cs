@@ -14,6 +14,13 @@ namespace SnmpMonitor.Config
     {
         [JsonProperty("tables")]
         public List<TableDefinition> Tables { get; set; } = new();
+        
+        /// <summary>
+        /// Возвращает только скалярные группы (isTable=false)
+        /// </summary>
+        [JsonIgnore]
+        public Dictionary<string, TableDefinition> Scalars => 
+            Tables.Where(t => !t.IsTable).ToDictionary(t => t.Category, t => t);
     }
 
     /// <summary>

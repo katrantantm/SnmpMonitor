@@ -74,10 +74,20 @@ namespace SnmpMonitor.Snmp
                 // Для скалярных значений SNMP требует добавления .0 к OID
                 // Если OID уже заканчивается на .0, не добавляем повторно
                 string oid = baseOid;
+                
+                // Удаляем ведущую точку если есть (для консистентности)
+                if (oid.StartsWith("."))
+                {
+                    oid = oid.Substring(1);
+                }
+                
+                // Добавляем .0 только если еще нет
                 if (!oid.EndsWith(".0"))
                 {
                     oid = oid + ".0";
                 }
+                
+                // Добавляем ведущую точку для формата Lextm.SharpSnmpLib
                 if (!oid.StartsWith("."))
                 {
                     oid = "." + oid;

@@ -80,10 +80,20 @@ namespace SnmpMonitor.Services
                 // For scalar values, SNMP requires adding .0 to the OID
                 // If OID already ends with .0, don't add it again
                 string oid = baseOid;
+                
+                // Remove leading dot if present (for consistency)
+                if (oid.StartsWith("."))
+                {
+                    oid = oid.Substring(1);
+                }
+                
+                // Add .0 only if not already present
                 if (!oid.EndsWith(".0"))
                 {
                     oid = oid + ".0";
                 }
+                
+                // Add leading dot for Lextm.SharpSnmpLib format
                 if (!oid.StartsWith("."))
                 {
                     oid = "." + oid;
