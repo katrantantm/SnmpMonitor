@@ -53,8 +53,8 @@ namespace SnmpMonitor.Services
                     return Result<string>.Failure("OID not found in configuration");
                 }
                 
-                // For scalar values, append .0 to OID if not already present
-                string oid = baseOid.EndsWith(".0") ? baseOid : baseOid + ".0";
+                // OID уже должны содержать .0 в конфигурации, не добавляем дополнительно
+                string oid = baseOid;
                 
                 _logger.Debug("Requesting OID: {0} ({1}.{2})", oid, category, name);
                 
@@ -70,9 +70,9 @@ namespace SnmpMonitor.Services
                     var variable = oidList[0];
                     
                     // Check for SNMP error responses - these indicate the OID doesn't exist or isn't available
-                    if (variable.Data is Lextm.SharpSnmpLib.NoSuchInstance ||
-                        variable.Data is Lextm.SharpSnmpLib.NoSuchObject ||
-                        variable.Data is Lextm.SharpSnmpLib.EndOfMibView)
+                    if (variable.Data is NoSuchInstance ||
+                        variable.Data is NoSuchObject ||
+                        variable.Data is EndOfMibView)
                     {
                         _logger.Warn("SNMP responded that OID is unavailable: {0}", oid);
                         return Result<string>.Failure("OID not available on device");
@@ -228,12 +228,14 @@ namespace SnmpMonitor.Services
             // Handle 'ipaddr' type
             if (fieldType == "ipaddr")
             {
-
-                // Validate IP format
-                if (IsValidIpAddress(_decoder.DecodeIndexToIpAddress(index)))
-                    return _decoder.DecodeIndexToIpAddress(index);
+                // First try to decode IP address from OID index (main format for ARP and routing tables)
+                string decodedFromIndex = _decoder.DecodeIndexToIpAddress(index);
                 
-                // Try to get bytes from OctetString
+                // Validate IP format from index
+                if (IsValidIpAddress(decodedFromIndex))
+                    return decodedFromIndex;
+                
+                // Try to get bytes from OctetString directly
                 if (variable.Data is OctetString octetStr)
                 {
                     byte[] bytes = octetStr.ToBytes();

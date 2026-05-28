@@ -47,9 +47,8 @@ namespace SnmpMonitor.Snmp
                     return "No Data";
                 }
                 
-                // Для скалярных значений необходимо добавлять .0 к OID
-                // Проверяем, есть ли уже .0 в конце OID (из конфигурации)
-                string oid = baseOid.EndsWith(".0") ? baseOid : baseOid + ".0";
+                // OID уже должны содержать .0 в конфигурации, не добавляем дополнительно
+                string oid = baseOid;
                 
                 _logger.Debug("Запрос OID: {0} ({1}.{2})", oid, category, name);
                 
@@ -65,9 +64,9 @@ namespace SnmpMonitor.Snmp
                     var variable = oidList[0];
                     
                     // Проверяем тип ответа - если NoSuchInstance, значит значение недоступно
-                    if (variable.Data is Lextm.SharpSnmpLib.NoSuchInstance ||
-                        variable.Data is Lextm.SharpSnmpLib.NoSuchObject ||
-                        variable.Data is Lextm.SharpSnmpLib.EndOfMibView)
+                    if (variable.Data is NoSuchInstance ||
+                        variable.Data is NoSuchObject ||
+                        variable.Data is EndOfMibView)
                     {
                         _logger.Warn("SNMP ответил что OID недоступен: {0}", oid);
                         return "No Data";
@@ -465,7 +464,7 @@ namespace SnmpMonitor.Snmp
                     }
                     // Для IP адресов и масок принимаем любой диапазон (0-255 для первого октета)
                     // Маски могут быть 0.0.0.0, сети могут начинаться с 0 (по умолчанию)
-                    if (allValid)
+                    if (allValid && octets[0] <= 255)
                     {
                         return $"{octets[0]}.{octets[1]}.{octets[2]}.{octets[3]}";
                     }
