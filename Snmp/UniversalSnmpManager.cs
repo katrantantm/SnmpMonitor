@@ -338,7 +338,8 @@ namespace SnmpMonitor.Snmp
                     // Для полей типа oid с valueMapping
                     else if (fieldType == "oid" && valueMapping != null)
                     {
-                        string rawValue = variable.Data.ToString();
+                        // Получаем OID значение через декодер
+                        string rawValue = DecodeRawData(variable.Data);
                         // OID может приходить с ведущей точкой или без - нормализуем
                         string decodedValue = rawValue.TrimStart('.');
                         
@@ -511,6 +512,12 @@ namespace SnmpMonitor.Snmp
         private string DecodeRawData(ISnmpData asnValue)
         {
             if (asnValue == null) return string.Empty;
+            
+            // Обработка ObjectIdentifier (OID type) - возвращаем OID как строку
+            if (asnValue is ObjectIdentifier oid)
+            {
+                return oid.ToString();
+            }
             
             // Обработка Integer/Integer32 - возвращаем числовое значение
             if (asnValue is Integer32 asnInt)
