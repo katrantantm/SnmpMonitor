@@ -153,7 +153,7 @@ namespace SnmpMonitor.Snmp
                     return result;
                 }
                 
-                _logger.Debug("Walk таблицы: {0} (OID: {1})", tableConfig.DisplayName, tableConfig.RootOid);
+                _logger.Debug("Walk таблицы: {0} (OID: {1})", tableConfig.DisplayName, tableConfig.RootOid ?? tableConfig.Id);
                 
                 // Собираем данные для каждого поля
                 var fieldData = new Dictionary<string, Dictionary<string, string>>();

@@ -144,7 +144,7 @@ namespace SnmpMonitor.Services
                     return Result<Dictionary<string, Dictionary<string, string>>>.Failure($"Table '{tableKey}' not found");
                 }
                 
-                _logger.Debug("Walking table: {0} (OID: {1})", tableConfig.DisplayName, tableConfig.RootOid);
+                _logger.Debug("Walking table: {0} (OID: {1})", tableConfig.DisplayName, tableConfig.RootOid ?? tableConfig.Id);
                 
                 // Collect data for each column
                 var fieldData = new Dictionary<string, Dictionary<string, string>>();
