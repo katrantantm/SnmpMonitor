@@ -102,36 +102,36 @@ namespace SnmpMonitor.Services
             
             try
             {
-                TableConfig tableConfig = OidConfigLoader.GetTableConfig(tableKey);
-                _logger.Debug("Walking table: {0} (OID: {1})", tableConfig.Name, tableConfig.BaseOid);
+                TableDefinition? tableConfig = OidConfigLoader.GetTableById(tableKey);
                 
-                // Load common value mapping for table if specified
-                Dictionary<string, string>? tableValueMap = null;
-                if (!string.IsNullOrEmpty(tableConfig.ValueMapping))
+                if (tableConfig == null)
                 {
-                    tableValueMap = OidConfigLoader.LoadValueMapping(tableConfig.ValueMapping);
+                    _logger.Error("Table '{0}' not found in configuration", tableKey);
+                    return Result<Dictionary<string, Dictionary<string, string>>>.Failure($"Table '{tableKey}' not found");
                 }
                 
-                // Collect data for each field
+                _logger.Debug("Walking table: {0} (OID: {1})", tableConfig.DisplayName, tableConfig.RootOid);
+                
+                // Collect data for each column
                 var fieldData = new Dictionary<string, Dictionary<string, string>>();
                 
-                foreach (var field in tableConfig.Fields)
+                foreach (var column in tableConfig.Columns)
                 {
-                    // Load field-specific value mapping if specified (overrides table mapping)
-                    Dictionary<string, string>? fieldValueMap = null;
-                    if (!string.IsNullOrEmpty(field.ValueMapping))
+                    // Load value mapping if specified
+                    Dictionary<string, string>? columnValueMap = null;
+                    if (!string.IsNullOrEmpty(column.MappingKey))
                     {
-                        fieldValueMap = OidConfigLoader.LoadValueMapping(field.ValueMapping);
+                        columnValueMap = OidConfigLoader.LoadValueMapping("Config/oid-mappings.json");
                     }
                     
                     var walkResult = WalkSingleField(
-                        field.Oid, 
-                        field.Type, 
-                        field.Format, 
-                        field.Map, 
-                        fieldValueMap ?? tableValueMap);
+                        column.Oid, 
+                        column.Type, 
+                        column.Format, 
+                        column.MappingKey, 
+                        columnValueMap);
                     
-                    fieldData[field.Name] = walkResult;
+                    fieldData[column.Name] = walkResult;
                 }
                 
                 // Determine indexes (combine all keys)

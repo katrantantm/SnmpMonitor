@@ -153,5 +153,67 @@ namespace SnmpMonitor.Config
                 return null;
             }
         }
+
+        /// <summary>
+        /// Получить OID для скалярного параметра (для совместимости со старым кодом)
+        /// </summary>
+        public static string GetScalarOid(string category, string name)
+        {
+            var config = Load();
+            
+            // Ищем таблицу с isTable=false по category или id
+            var scalarGroup = config.Tables
+                .FirstOrDefault(t => !t.IsTable && 
+                    (t.Category.Equals(category, StringComparison.OrdinalIgnoreCase) || 
+                     t.Id.Equals(category, StringComparison.OrdinalIgnoreCase)));
+            
+            if (scalarGroup == null)
+            {
+                // Пробуем найти по имени колонки напрямую
+                var column = config.Tables
+                    .SelectMany(t => t.Columns)
+                    .FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                
+                return column?.Oid ?? string.Empty;
+            }
+            
+            // Ищем колонку с нужным именем
+            var targetColumn = scalarGroup.Columns
+                .FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            
+            return targetColumn?.Oid ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Получить определение таблицы по ключу (для совместимости)
+        /// </summary>
+        public static TableDefinition? GetTableById(string tableId)
+        {
+            var config = Load();
+            return config.Tables.FirstOrDefault(t => 
+                t.Id.Equals(tableId, StringComparison.OrdinalIgnoreCase) ||
+                t.Category.Equals(tableId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Получить скалярную группу по ID
+        /// </summary>
+        public static TableDefinition? GetScalarGroup(string groupId)
+        {
+            var config = Load();
+            return config.Tables.FirstOrDefault(t => 
+                !t.IsTable && 
+                (t.Id.Equals(groupId, StringComparison.OrdinalIgnoreCase) ||
+                 t.Category.Equals(groupId, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        /// <summary>
+        /// Получить все скалярные группы
+        /// </summary>
+        public static List<TableDefinition> GetScalarGroups()
+        {
+            var config = Load();
+            return config.Tables.Where(t => !t.IsTable).ToList();
+        }
     }
 }

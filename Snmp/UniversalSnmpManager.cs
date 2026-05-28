@@ -47,10 +47,19 @@ namespace SnmpMonitor.Snmp
                     return "No Data";
                 }
                 
-                // OID уже должны содержать .0 в конфигурации, не добавляем дополнительно
-                string oid = baseOid.StartsWith(".") ? baseOid : "." + baseOid;
+                // Для скалярных значений SNMP требует добавления .0 к OID
+                // Если OID уже заканчивается на .0, не добавляем повторно
+                string oid = baseOid;
+                if (!oid.EndsWith(".0"))
+                {
+                    oid = oid + ".0";
+                }
+                if (!oid.StartsWith("."))
+                {
+                    oid = "." + oid;
+                }
                 
-                _logger.Debug("Запрос OID: {0} ({1}.{2})", oid, category, name);
+                _logger.Debug("Запрос OID: {0} (категория: {1}, имя: {2}, базовый OID: {3})", oid, category, name, baseOid);
                 
                 var version = VersionCode.V2;
                 var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), 161);
@@ -111,30 +120,30 @@ namespace SnmpMonitor.Snmp
             
             try
             {
-                TableConfig tableConfig = OidConfigLoader.GetTableConfig(tableKey);
-                _logger.Debug("Walk таблицы: {0} (OID: {1})", tableConfig.Name, tableConfig.BaseOid);
+                TableDefinition? tableConfig = OidConfigLoader.GetTableById(tableKey);
+                
+                if (tableConfig == null)
+                {
+                    _logger.Error("Таблица с ключом '{0}' не найдена в конфигурации", tableKey);
+                    return result;
+                }
+                
+                _logger.Debug("Walk таблицы: {0} (OID: {1})", tableConfig.DisplayName, tableConfig.RootOid);
                 
                 // Собираем данные для каждого поля
                 var fieldData = new Dictionary<string, Dictionary<string, string>>();
                 
-                // Загружаем общий справочник значений для таблицы если указан
-                Dictionary<string, string>? tableValueMap = null;
-                if (!string.IsNullOrEmpty(tableConfig.ValueMapping))
+                foreach (var column in tableConfig.Columns)
                 {
-                    tableValueMap = OidConfigLoader.LoadValueMapping(tableConfig.ValueMapping);
-                }
-                
-                foreach (var field in tableConfig.Fields)
-                {
-                    // Загружаем индивидуальный справочник для поля если указан (переопределяет таблицу)
+                    // Загружаем маппинг для поля если указан
                     Dictionary<string, string>? fieldValueMap = null;
-                    if (!string.IsNullOrEmpty(field.ValueMapping))
+                    if (!string.IsNullOrEmpty(column.MappingKey))
                     {
-                        fieldValueMap = OidConfigLoader.LoadValueMapping(field.ValueMapping);
+                        fieldValueMap = OidConfigLoader.LoadValueMapping("Config/oid-mappings.json");
                     }
                     
-                    var walkResult = WalkSingleField(field.Oid, field.Type, field.Format, field.Map, fieldValueMap ?? tableValueMap);
-                    fieldData[field.Name] = walkResult;
+                    var walkResult = WalkSingleField(column.Oid, column.Type, column.Format, column.MappingKey, fieldValueMap);
+                    fieldData[column.Name] = walkResult;
                 }
                 
                 // Определяем индексы (объединяем все ключи)
@@ -161,7 +170,7 @@ namespace SnmpMonitor.Snmp
                     result[index] = entry;
                 }
                 
-                _logger.Debug("Walk {0}: получено {1} записей", tableConfig.Name, result.Count);
+                _logger.Debug("Walk {0}: получено {1} записей", tableConfig.DisplayName, result.Count);
             }
             catch (Exception ex)
             {
@@ -993,25 +1002,35 @@ namespace SnmpMonitor.Snmp
         }
 
         /// <summary>
-        /// Получить скалярные значения категории как словарь
+        /// Получить скалярные значения группы как словарь
         /// </summary>
-        public Dictionary<string, string> GetScalars(string category)
+        public Dictionary<string, string> GetScalars(string groupId)
         {
             var result = new Dictionary<string, string>();
             try
             {
-                var config = OidConfigLoader.Load();
-                if (config.Scalars.ContainsKey(category))
+                // Ищем скалярную группу по ID или category
+                var scalarGroup = OidConfigLoader.GetScalarGroup(groupId);
+                
+                if (scalarGroup == null)
                 {
-                    foreach (var kvp in config.Scalars[category])
-                    {
-                        result[kvp.Key] = GetScalar(category, kvp.Key);
-                    }
+                    _logger.Warn("Скалярная группа '{0}' не найдена в конфигурации", groupId);
+                    return result;
                 }
+                
+                _logger.Debug("Запрос скалярных значений группы: {0} ({1})", scalarGroup.DisplayName, scalarGroup.Id);
+                
+                foreach (var column in scalarGroup.Columns)
+                {
+                    _logger.Debug("  Запрос скаляра: {0} (OID: {1})", column.Name, column.Oid);
+                    result[column.Name] = GetScalar(scalarGroup.Id, column.Name);
+                }
+                
+                _logger.Debug("Получено {0} скалярных значений", result.Count);
             }
             catch (Exception ex)
             {
-                _logger.Warn("Ошибка при запросе скаляров {0}: {1}", category, ex.Message);
+                _logger.Warn("Ошибка при запросе скаляров {0}: {1}", groupId, ex.Message);
             }
             return result;
         }
