@@ -41,6 +41,12 @@ namespace SnmpMonitor.Snmp
             {
                 string baseOid = OidConfigLoader.GetScalarOid(category, name);
                 
+                if (string.IsNullOrEmpty(baseOid))
+                {
+                    _logger.Error("OID не найден для {0}.{1}", category, name);
+                    return "No Data";
+                }
+                
                 // Для скалярных значений необходимо добавлять .0 к OID
                 // Проверяем, есть ли уже .0 в конце OID (из конфигурации)
                 string oid = baseOid.EndsWith(".0") ? baseOid : baseOid + ".0";
@@ -57,6 +63,16 @@ namespace SnmpMonitor.Snmp
                 if (oidList.Count > 0 && oidList[0].Data != null)
                 {
                     var variable = oidList[0];
+                    
+                    // Проверяем тип ответа - если NoSuchInstance, значит значение недоступно
+                    if (variable.Data is Lextm.SharpSnmpLib.Messaging.NoSuchInstance ||
+                        variable.Data is Lextm.SharpSnmpLib.Messaging.NoSuchObject ||
+                        variable.Data is Lextm.SharpSnmpLib.Messaging.EndOfMibView)
+                    {
+                        _logger.Warn("SNMP ответил что OID недоступен: {0}", oid);
+                        return "No Data";
+                    }
+                    
                     // Передаем сам объект ISnmpData для декодирования
                     string value = DecodeRawData(variable.Data);
                     _logger.Debug("Получено: {0} = {1}", oid, value);
@@ -64,7 +80,7 @@ namespace SnmpMonitor.Snmp
                 }
                 else if (oidList.Count > 0)
                 {
-                    _logger.Warn("Пустой ответ для OID: {0}", oid);
+                    _logger.Warn("Пустой ответ для OID: {0}. Тип данных: {1}", oid, oidList[0].Data?.GetType().Name ?? "null");
                 }
                 else
                 {

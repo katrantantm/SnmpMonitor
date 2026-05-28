@@ -295,7 +295,8 @@ namespace SnmpMonitor.Config
             {
                 return config.Scalars[category][name];
             }
-            throw new KeyNotFoundException($"OID '{name}' не найден в категории '{category}'");
+            // Возвращаем пустую строку вместо исключения для обработки в вызывающем коде
+            return string.Empty;
         }
 
         /// <summary>

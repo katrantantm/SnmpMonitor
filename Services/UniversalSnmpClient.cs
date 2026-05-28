@@ -47,6 +47,12 @@ namespace SnmpMonitor.Services
             {
                 string baseOid = OidConfigLoader.GetScalarOid(category, name);
                 
+                if (string.IsNullOrEmpty(baseOid))
+                {
+                    _logger.Error("OID not found for {0}.{1}", category, name);
+                    return Result<string>.Failure("OID not found in configuration");
+                }
+                
                 // For scalar values, append .0 to OID if not already present
                 string oid = baseOid.EndsWith(".0") ? baseOid : baseOid + ".0";
                 
@@ -62,12 +68,22 @@ namespace SnmpMonitor.Services
                 if (oidList.Count > 0 && oidList[0].Data != null)
                 {
                     var variable = oidList[0];
+                    
+                    // Check for SNMP error responses
+                    if (variable.Data is Lextm.SharpSnmpLib.Messaging.NoSuchInstance ||
+                        variable.Data is Lextm.SharpSnmpLib.Messaging.NoSuchObject ||
+                        variable.Data is Lextm.SharpSnmpLib.Messaging.EndOfMibView)
+                    {
+                        _logger.Warn("SNMP responded that OID is unavailable: {0}", oid);
+                        return Result<string>.Failure("OID not available on device");
+                    }
+                    
                     string value = _decoder.Decode(variable.Data);
                     _logger.Debug("Received: {0} = {1}", oid, value);
                     return Result<string>.Success(value);
                 }
                 
-                _logger.Warn("Empty response for OID: {0}", oid);
+                _logger.Warn("Empty response for OID: {0}. Data type: {1}", oid, oidList[0].Data?.GetType().Name ?? "null");
                 return Result<string>.Failure("No data received");
             }
             catch (Exception ex)
