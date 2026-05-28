@@ -207,7 +207,7 @@ namespace SnmpMonitor.Snmp
         /// <summary>
         /// Walk одного поля таблицы
         /// </summary>
-        private Dictionary<string, string> WalkSingleField(string rootOid, string? fieldType = null, string? format = null, Dictionary<string, string>? map = null, Dictionary<string, string>? valueMapping = null)
+        private Dictionary<string, string> WalkSingleField(string rootOid, ColumnType columnType = ColumnType.Column, string? format = null, string? mappingKey = null, Dictionary<string, string>? valueMapping = null)
         {
             var result = new Dictionary<string, string>();
             
@@ -230,13 +230,13 @@ namespace SnmpMonitor.Snmp
                     if (index.StartsWith(".")) index = index.Substring(1);
                     
                     // Для полей типа "index" значение берётся из индекса OID
-                    if (fieldType == "index")
+                    if (columnType == ColumnType.Index)
                     {
                         // Просто возвращаем индекс как есть (число или строка)
                         result[index] = index;
                     }
                     // Для полей типа "ipaddr" декодируем IP адрес
-                    else if (fieldType == "ipaddr")
+                    else if (format == "ipaddr")
                     {
                         string decodedValue;
                         
@@ -290,7 +290,7 @@ namespace SnmpMonitor.Snmp
                         result[index] = decodedValue;
                     }
                     // Для полей типа "macaddress" декодируем MAC адрес из OctetString
-                    else if (fieldType == "macaddress")
+                    else if (format == "macaddress")
                     {
                         string decodedValue;
                         
@@ -317,7 +317,7 @@ namespace SnmpMonitor.Snmp
                         result[index] = decodedValue;
                     }
                     // Для числовых полей (long, int, uint, ulong) с форматированием ИЛИ valueMapping
-                    else if ((fieldType == "long" || fieldType == "int" || fieldType == "uint" || fieldType == "ulong"))
+                    else if (!string.IsNullOrEmpty(format) && (format == "long" || format == "int" || format == "uint" || format == "ulong"))
                     {
                         // Берем значение напрямую из числового типа SNMP
                         string? numericValue = null;
@@ -384,7 +384,7 @@ namespace SnmpMonitor.Snmp
                         }
                     }
                     // Для полей типа oid с valueMapping
-                    else if (fieldType == "oid" && valueMapping != null)
+                    else if (format == "oid" && valueMapping != null)
                     {
                         // Получаем OID значение через декодер
                         string rawValue = DecodeRawData(variable.Data);
@@ -411,11 +411,6 @@ namespace SnmpMonitor.Snmp
                         if (valueMapping != null && valueMapping.TryGetValue(decodedValue, out var mappedValue))
                         {
                             decodedValue = mappedValue;
-                        }
-                        // Применяем встроенный маппинг если указан (для int типов)
-                        else if (map != null && map.TryGetValue(decodedValue, out var inlineMappedValue))
-                        {
-                            decodedValue = inlineMappedValue;
                         }
                         
                         result[index] = decodedValue;
