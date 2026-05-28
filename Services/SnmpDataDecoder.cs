@@ -27,6 +27,10 @@ namespace SnmpMonitor.Services
         {
             if (asnValue == null) return string.Empty;
 
+            // Handle ObjectIdentifier (OID type) - return the OID as string without any transformation
+            if (asnValue is ObjectIdentifier oid)
+                return oid.ToString();
+
             // Handle Integer/Integer32
             if (asnValue is Integer32 asnInt)
                 return asnInt.ToInt32().ToString();

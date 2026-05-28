@@ -254,19 +254,23 @@ namespace SnmpMonitor.Services
                 
                 if (valueMapping != null && !string.IsNullOrEmpty(numericValue))
                 {
-                    return valueMapping.TryGetValue(numericValue, out var mapped) 
-                        ? mapped 
-                        : numericValue;
+                    return _formatter.ApplyMapping(numericValue, valueMapping);
                 }
                 
                 return numericValue ?? "N/A";
             }
 
-            // Handle 'oid' type with valueMapping
-            if (fieldType == "oid" && valueMapping != null)
+            // Handle 'oid' type with valueMapping - use decoder to get the raw OID string
+            if (fieldType == "oid")
             {
-                string rawValue = variable.Data.ToString();
-                return _formatter.ApplyMapping(rawValue, valueMapping);
+                string rawValue = _decoder.Decode(variable.Data);
+                
+                if (valueMapping != null)
+                {
+                    return _formatter.ApplyMapping(rawValue, valueMapping);
+                }
+                
+                return rawValue;
             }
 
             // Default: decode and apply mappings
