@@ -1,44 +1,166 @@
-```
-# Build artifacts
-bin/
-obj/
-*.exe
-*.dll
+```csharp
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Dd]epends/
+[Bb]in/
+[Oo]bj/
+
+# User-specific files
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results of Visual Studio analyzer packages
+!packages/
+*.ruleset
+
+# Visual C++ cache files
+ipch/
+*.aps
+*.ncb
+*.opendb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.VC.opendb
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# NUnit
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+
+# Build results for other tools
+*_i.c
+*_p.c
+*_h.h
+*.ilk
+*.meta
+*.obj
+*.iobj
+*.pch
 *.pdb
-*.nupkg
-
-# Dependencies
-packages/
-node_modules/
-vendor/
-
-# Logs
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
 *.log
-logs/
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# Chutzpah Test files
+_Chutzpah*
+
+# Visual Studio trace files
+*.e2e
+
+# SQL Server files
+*.mdf
+*.ldf
+
+# Windows Mobile toolchain specific
+*.suo
+*.user
+*.aps
+*.resources
+*.settings
+*.cdf
+
+# Others
+*.cache
+*.cod
+*.data
+*.tlog
+*.wrn
+*.zip
+*.tar
+*.gz
 
 # Environment
 .env
 .env.local
 .env.*
 
-# Editor files
-.vscode/
+# IDE
+.vs/
 .idea/
 *.swp
 *.swo
 
-# OS files
+# OS generated files
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Icon?
+desktop.ini
 
-# Test and coverage
+# Testing
 coverage/
 htmlcov/
 *.coverage
-.testresults
 
-# Temporary files
-*.tmp
-*.temp
-[Tt]emp/
+# Dependencies
+node_modules/
+vendor/bundle/
+julia-*/
+zig*/
+
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git/modules/
+*.sublime-workspace
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pytest
+.pytest_cache/
+
+# Gradle
+.gradle/
+build/
+
+# Target directories
+target/
+out/
+dist/
 ```
