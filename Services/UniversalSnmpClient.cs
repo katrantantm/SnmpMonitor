@@ -78,20 +78,11 @@ namespace SnmpMonitor.Services
                 }
                 
                 // For scalar values, SNMP requires adding .0 to the OID
-                // If OID already ends with .0, don't add it again
-                string oid = baseOid;
+                // Remove all leading and trailing dots, then add .0 and leading dot
+                string oid = baseOid.Trim('.');
                 
-                // Remove leading dot if present (for consistency)
-                if (oid.StartsWith("."))
-                {
-                    oid = oid.Substring(1);
-                }
-                
-                // Add .0 only if not already present
-                if (!oid.EndsWith(".0"))
-                {
-                    oid = oid + ".0";
-                }
+                // Add .0 for scalar value
+                oid = oid + ".0";
                 
                 // Add leading dot for Lextm.SharpSnmpLib format
                 if (!oid.StartsWith("."))
@@ -201,7 +192,7 @@ namespace SnmpMonitor.Services
                     result[index] = entry;
                 }
                 
-                _logger.Debug("Walk {0}: received {1} records", tableConfig.Name, result.Count);
+                _logger.Debug("Walk {0}: received {1} records", tableConfig.DisplayName, result.Count);
                 return Result<Dictionary<string, Dictionary<string, string>>>.Success(result);
             }
             catch (Exception ex)

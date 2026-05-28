@@ -7,6 +7,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using SnmpMonitor.Config;
 using SnmpMonitor.Logging;
+using SnmpMonitor.Models;
 
 namespace SnmpMonitor.Reporting
 {

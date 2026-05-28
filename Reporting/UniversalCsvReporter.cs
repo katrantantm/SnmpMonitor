@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using SnmpMonitor.Config;
 using SnmpMonitor.Logging;
+using SnmpMonitor.Models;
 
 namespace SnmpMonitor.Reporting
 {
