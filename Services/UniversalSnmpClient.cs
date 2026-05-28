@@ -70,9 +70,9 @@ namespace SnmpMonitor.Services
                     var variable = oidList[0];
                     
                     // Check for SNMP error responses
-                    if (variable.Data is Lextm.SharpSnmpLib.Messaging.NoSuchInstance ||
-                        variable.Data is Lextm.SharpSnmpLib.Messaging.NoSuchObject ||
-                        variable.Data is Lextm.SharpSnmpLib.Messaging.EndOfMibView)
+                    if (variable.Data is NoSuchInstance ||
+                        variable.Data is NoSuchObject ||
+                        variable.Data is EndOfMibView)
                     {
                         _logger.Warn("SNMP responded that OID is unavailable: {0}", oid);
                         return Result<string>.Failure("OID not available on device");

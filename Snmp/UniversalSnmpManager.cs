@@ -65,9 +65,9 @@ namespace SnmpMonitor.Snmp
                     var variable = oidList[0];
                     
                     // Проверяем тип ответа - если NoSuchInstance, значит значение недоступно
-                    if (variable.Data is Lextm.SharpSnmpLib.Messaging.NoSuchInstance ||
-                        variable.Data is Lextm.SharpSnmpLib.Messaging.NoSuchObject ||
-                        variable.Data is Lextm.SharpSnmpLib.Messaging.EndOfMibView)
+                    if (variable.Data is NoSuchInstance ||
+                        variable.Data is NoSuchObject ||
+                        variable.Data is EndOfMibView)
                     {
                         _logger.Warn("SNMP ответил что OID недоступен: {0}", oid);
                         return "No Data";

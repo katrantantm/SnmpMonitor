@@ -1,21 +1,20 @@
+```
 # Compiled and build artifacts
-*.o
-*.obj
 *.exe
 *.dll
+*.pdb
+*.obj
+*.lib
 *.so
+*.dylib
 *.a
-*.out
 
 # Dependencies
-node_modules/
-venv/
-.venv/
-__pycache__/
-.mypy_cache/
-.pytest_cache/
-target/
-.gradle/
+packages/
+bin/
+obj/
+Debug/
+Release/
 
 # Logs and temp files
 *.log
@@ -28,40 +27,12 @@ target/
 *.env.*
 
 # Editors
+.vs/
 .vscode/
 .idea/
+*.userprefs
 
-# Build and distribution
-dist/
-build/
-coverage/
-htmlcov/
-*.class
-
-# System files
+# OS generated files
 .DS_Store
 Thumbs.db
-
-# Archives
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
+```
