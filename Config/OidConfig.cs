@@ -89,20 +89,42 @@ namespace SnmpMonitor.Config
 
                 try
                 {
-                    if (!File.Exists(configPath))
+                    string fullPath = Path.IsPathRooted(configPath) ? configPath : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, configPath);
+                    
+                    if (!File.Exists(fullPath))
                     {
-                        Console.WriteLine($"⚠️ Файл конфигурации OID '{configPath}' не найден.");
+                        // Пробуем альтернативный путь
+                        fullPath = Path.Combine(Directory.GetCurrentDirectory(), configPath);
+                    }
+                    
+                    if (!File.Exists(fullPath))
+                    {
+                        Console.WriteLine($"⚠️ Файл конфигурации OID '{configPath}' не найден. Проверьте путь.");
+                        Console.WriteLine($"Текущая директория: {Directory.GetCurrentDirectory()}");
+                        Console.WriteLine($"Полный путь поиска: {fullPath}");
                         _config = CreateDefaultConfig();
                     }
                     else
                     {
-                        string json = File.ReadAllText(configPath);
+                        Console.WriteLine($"ℹ️ Загрузка конфигурации из: {fullPath}");
+                        string json = File.ReadAllText(fullPath);
                         _config = JsonConvert.DeserializeObject<OidConfiguration>(json) ?? CreateDefaultConfig();
+                        
+                        // Логируем загруженные скалярные категории
+                        if (_config.Scalars.Count > 0)
+                        {
+                            Console.WriteLine($"✓ Загружено скалярных категорий: {_config.Scalars.Count}");
+                            foreach (var cat in _config.Scalars.Keys)
+                            {
+                                Console.WriteLine($"  - {cat}: {_config.Scalars[cat].Count} значений");
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"❌ Ошибка загрузки конфигурации OID: {ex.Message}");
+                    Console.WriteLine(ex.StackTrace);
                     _config = CreateDefaultConfig();
                 }
 
