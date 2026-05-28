@@ -45,7 +45,31 @@ namespace SnmpMonitor.Services
         {
             try
             {
-                string baseOid = OidConfigLoader.GetScalarOid(category, name);
+                // Find scalar group (isTable=false) by category
+                var config = OidConfigLoader.Load();
+                var scalarGroup = config.Tables
+                    .FirstOrDefault(t => !t.IsTable && 
+                        (t.Category.Equals(category, StringComparison.OrdinalIgnoreCase) ||
+                         t.Id.EndsWith("_scalars", StringComparison.OrdinalIgnoreCase) && 
+                         t.Category.Equals(category, StringComparison.OrdinalIgnoreCase)));
+                
+                if (scalarGroup == null)
+                {
+                    _logger.Error("Scalar group not found for category: {0}", category);
+                    return Result<string>.Failure("Scalar group not found in configuration");
+                }
+                
+                // Find column with the specified name
+                var column = scalarGroup.Columns
+                    .FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                
+                if (column == null)
+                {
+                    _logger.Error("Column '{0}' not found in group '{1}'", name, scalarGroup.Id);
+                    return Result<string>.Failure("Column not found in scalar group");
+                }
+                
+                string baseOid = column.Oid;
                 
                 if (string.IsNullOrEmpty(baseOid))
                 {
@@ -53,10 +77,19 @@ namespace SnmpMonitor.Services
                     return Result<string>.Failure("OID not found in configuration");
                 }
                 
-                // OID уже должны содержать .0 в конфигурации, не добавляем дополнительно
-                string oid = baseOid.StartsWith(".") ? baseOid : "." + baseOid;
+                // For scalar values, SNMP requires adding .0 to the OID
+                // If OID already ends with .0, don't add it again
+                string oid = baseOid;
+                if (!oid.EndsWith(".0"))
+                {
+                    oid = oid + ".0";
+                }
+                if (!oid.StartsWith("."))
+                {
+                    oid = "." + oid;
+                }
                 
-                _logger.Debug("Requesting OID: {0} ({1}.{2})", oid, category, name);
+                _logger.Debug("Requesting OID: {0} ({1}.{2}, base OID: {3})", oid, category, name, baseOid);
                 
                 var version = VersionCode.V2;
                 var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), 161);

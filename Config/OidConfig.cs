@@ -101,21 +101,14 @@ namespace SnmpMonitor.Config
         }
 
         /// <summary>
-        /// Получить только скалярные группы (isTable=false)
-        /// </summary>
-        public static List<TableDefinition> GetScalarGroups()
-        {
-            var config = Load();
-            return config.Tables.Where(t => !t.IsTable).ToList();
-        }
-
-        /// <summary>
         /// Получить определение таблицы по ID
         /// </summary>
         public static TableDefinition? GetTableById(string tableId)
         {
             var config = Load();
-            return config.Tables.FirstOrDefault(t => t.Id.Equals(tableId, StringComparison.OrdinalIgnoreCase));
+            return config.Tables.FirstOrDefault(t => 
+                t.Id.Equals(tableId, StringComparison.OrdinalIgnoreCase) ||
+                t.Category.Equals(tableId, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>
@@ -185,17 +178,6 @@ namespace SnmpMonitor.Config
         }
 
         /// <summary>
-        /// Получить определение таблицы по ключу (для совместимости)
-        /// </summary>
-        public static TableDefinition? GetTableById(string tableId)
-        {
-            var config = Load();
-            return config.Tables.FirstOrDefault(t => 
-                t.Id.Equals(tableId, StringComparison.OrdinalIgnoreCase) ||
-                t.Category.Equals(tableId, StringComparison.OrdinalIgnoreCase));
-        }
-
-        /// <summary>
         /// Получить скалярную группу по ID
         /// </summary>
         public static TableDefinition? GetScalarGroup(string groupId)
@@ -205,15 +187,6 @@ namespace SnmpMonitor.Config
                 !t.IsTable && 
                 (t.Id.Equals(groupId, StringComparison.OrdinalIgnoreCase) ||
                  t.Category.Equals(groupId, StringComparison.OrdinalIgnoreCase)));
-        }
-
-        /// <summary>
-        /// Получить все скалярные группы
-        /// </summary>
-        public static List<TableDefinition> GetScalarGroups()
-        {
-            var config = Load();
-            return config.Tables.Where(t => !t.IsTable).ToList();
         }
     }
 }

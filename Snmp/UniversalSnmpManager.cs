@@ -39,7 +39,31 @@ namespace SnmpMonitor.Snmp
         {
             try
             {
-                string baseOid = OidConfigLoader.GetScalarOid(category, name);
+                // Ищем скалярную группу (isTable=false) по category
+                var config = OidConfigLoader.Load();
+                var scalarGroup = config.Tables
+                    .FirstOrDefault(t => !t.IsTable && 
+                        (t.Category.Equals(category, StringComparison.OrdinalIgnoreCase) ||
+                         t.Id.EndsWith("_scalars", StringComparison.OrdinalIgnoreCase) && 
+                         t.Category.Equals(category, StringComparison.OrdinalIgnoreCase)));
+                
+                if (scalarGroup == null)
+                {
+                    _logger.Error("Скалярная группа не найдена для категории: {0}", category);
+                    return "No Data";
+                }
+                
+                // Ищем колонку с нужным именем
+                var column = scalarGroup.Columns
+                    .FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                
+                if (column == null)
+                {
+                    _logger.Error("Колонка '{0}' не найдена в группе '{1}'", name, scalarGroup.Id);
+                    return "No Data";
+                }
+                
+                string baseOid = column.Oid;
                 
                 if (string.IsNullOrEmpty(baseOid))
                 {
