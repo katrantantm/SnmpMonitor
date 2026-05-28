@@ -54,7 +54,7 @@ namespace SnmpMonitor.Services
                 }
                 
                 // OID уже должны содержать .0 в конфигурации, не добавляем дополнительно
-                string oid = baseOid;
+                string oid = baseOid.StartsWith(".") ? baseOid : "." + baseOid;
                 
                 _logger.Debug("Requesting OID: {0} ({1}.{2})", oid, category, name);
                 
@@ -79,7 +79,7 @@ namespace SnmpMonitor.Services
                     }
                     
                     string value = _decoder.Decode(variable.Data);
-                    _logger.Debug("Received: {0} = {1}", oid, value);
+                    _logger.Debug("Received: {0} = {1} (type: {2})", oid, value, variable.Data.GetType().Name);
                     return Result<string>.Success(value);
                 }
                 

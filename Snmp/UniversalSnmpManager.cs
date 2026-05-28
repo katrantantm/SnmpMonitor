@@ -48,7 +48,7 @@ namespace SnmpMonitor.Snmp
                 }
                 
                 // OID уже должны содержать .0 в конфигурации, не добавляем дополнительно
-                string oid = baseOid;
+                string oid = baseOid.StartsWith(".") ? baseOid : "." + baseOid;
                 
                 _logger.Debug("Запрос OID: {0} ({1}.{2})", oid, category, name);
                 
@@ -74,7 +74,7 @@ namespace SnmpMonitor.Snmp
                     
                     // Передаем сам объект ISnmpData для декодирования
                     string value = DecodeRawData(variable.Data);
-                    _logger.Debug("Получено: {0} = {1}", oid, value);
+                    _logger.Debug("Получено: {0} = {1} (тип: {2})", oid, value, variable.Data.GetType().Name);
                     return value;
                 }
                 else if (oidList.Count > 0)
