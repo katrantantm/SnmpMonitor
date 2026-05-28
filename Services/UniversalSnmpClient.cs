@@ -207,9 +207,9 @@ namespace SnmpMonitor.Services
         /// </summary>
         private Dictionary<string, string> WalkSingleField(
             string rootOid, 
-            string? fieldType = null, 
+            ColumnType columnType = ColumnType.Column, 
             string? format = null, 
-            Dictionary<string, string>? map = null, 
+            string? mappingKey = null, 
             Dictionary<string, string>? valueMapping = null)
         {
             var result = new Dictionary<string, string>();
@@ -232,7 +232,16 @@ namespace SnmpMonitor.Services
                     string index = fullOid.Substring(rootOid.Length);
                     if (index.StartsWith(".")) index = index.Substring(1);
                     
-                    string value = DecodeFieldValue(variable, index, fieldType, format, map, valueMapping);
+                    // Convert ColumnType to string for DecodeFieldValue
+                    string? fieldType = columnType switch
+                    {
+                        ColumnType.Index => "index",
+                        ColumnType.Scalar => "scalar",
+                        ColumnType.Column => GetFormatType(format),
+                        _ => null
+                    };
+                    
+                    string value = DecodeFieldValue(variable, index, fieldType, format, mappingKey, valueMapping);
                     result[index] = value;
                 }
             }
@@ -245,6 +254,23 @@ namespace SnmpMonitor.Services
         }
 
         /// <summary>
+        /// Get field type string from format
+        /// </summary>
+        private static string? GetFormatType(string? format)
+        {
+            if (string.IsNullOrEmpty(format)) return null;
+            
+            return format.ToLower() switch
+            {
+                "ipaddress" or "ipaddr" => "ipaddr",
+                "macaddress" or "macaddr" => "macaddress",
+                "long" or "int" or "uint" or "ulong" => format.ToLower(),
+                "oid" => "oid",
+                _ => null
+            };
+        }
+
+        /// <summary>
         /// Decode a field value based on its type
         /// </summary>
         private string DecodeFieldValue(
@@ -252,7 +278,7 @@ namespace SnmpMonitor.Services
             string index,
             string? fieldType,
             string? format,
-            Dictionary<string, string>? map,
+            string? mappingKey,
             Dictionary<string, string>? valueMapping)
         {
             // Handle 'index' type - value comes from OID index
@@ -330,9 +356,6 @@ namespace SnmpMonitor.Services
             
             if (valueMapping != null && valueMapping.TryGetValue(decodedValue, out var mappedValue))
                 return mappedValue;
-            
-            if (map != null && map.TryGetValue(decodedValue, out var inlineMappedValue))
-                return inlineMappedValue;
             
             return decodedValue;
         }
