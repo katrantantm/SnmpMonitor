@@ -1,1 +1,30 @@
-Nothing should be ignored since the changes only include source code files (.cs files) and no build artifacts, dependencies, or temporary files.
+```csharp
+# Build results
+bin/
+obj/
+out/
+
+# User-specific files
+.vs/
+*.user
+*.userosscache
+*.suo
+*.csproj.user
+
+# Log files
+*.log
+
+# Environment specific settings
+.env
+.env.local
+*.env.*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Dependencies
+packages/
+node_modules/
+.nuget/
+```

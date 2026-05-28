@@ -66,4 +66,51 @@ namespace SnmpMonitor.Models
         [JsonPropertyName("indexStrategy")]
         public string? IndexStrategy { get; set; } // "simple", "composite", "ip"
     }
+
+    /// <summary>
+    /// Корневая конфигурация OID
+    /// </summary>
+    public class OidConfiguration
+    {
+        [JsonPropertyName("tables")]
+        public List<TableDefinition> Tables { get; set; } = new();
+        
+        [JsonPropertyName("scalarGroups")]
+        public List<TableDefinition> ScalarGroups { get; set; } = new();
+        
+        // Свойство для совместимости со старым кодом, обращающимся к Scalars как к словарю
+        [JsonIgnore]
+        public Dictionary<string, TableDefinition> Scalars 
+        { 
+            get 
+            {
+                var dict = new Dictionary<string, TableDefinition>();
+                foreach (var group in ScalarGroups)
+                {
+                    if (!dict.ContainsKey(group.Id))
+                        dict.Add(group.Id, group);
+                }
+                return dict;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Запись данных SNMP
+    /// </summary>
+    public class SnmpDataRecord
+    {
+        public string IndexValue { get; set; } = string.Empty;
+        public Dictionary<string, object?> Values { get; set; } = new();
+        public DateTime Timestamp { get; set; } = DateTime.Now;
+    }
+
+    /// <summary>
+    /// Конфигурация маппинга значений
+    /// </summary>
+    public class MappingConfiguration
+    {
+        [JsonPropertyName("mappings")]
+        public Dictionary<string, Dictionary<string, string>> Mappings { get; set; } = new();
+    }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using SnmpMonitor.Logging;
+using SnmpMonitor.Models;
 using SnmpMonitor.Snmp;
 
 namespace SnmpMonitor.Reporting

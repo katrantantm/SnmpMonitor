@@ -6,6 +6,7 @@ using Lextm.SharpSnmpLib;
 using Lextm.SharpSnmpLib.Messaging;
 using SnmpMonitor.Config;
 using SnmpMonitor.Logging;
+using SnmpMonitor.Models;
 using SnmpMonitor.Results;
 
 namespace SnmpMonitor.Services
