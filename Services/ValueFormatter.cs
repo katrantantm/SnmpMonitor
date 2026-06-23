@@ -29,13 +29,15 @@ namespace SnmpMonitor.Services
         /// <summary>
         /// Applies value mapping to a raw value
         /// </summary>
-        public string ApplyMapping(string rawValue, Dictionary<string, string>? mapping)
+        public string ApplyMapping(string? rawValue, Dictionary<string, string>? mapping)
         {
-            if (mapping == null || string.IsNullOrEmpty(rawValue)) return rawValue;
+            if (string.IsNullOrEmpty(rawValue)) return string.Empty;
+            if (mapping == null || mapping.Count == 0) return rawValue!;
             
             // Normalize OID by removing leading dot
-            string normalizedKey = rawValue.TrimStart('.');
+            string normalizedKey = rawValue!.TrimStart('.');
             
+            // Try exact match first (normalized key without leading dot)
             if (mapping.TryGetValue(normalizedKey, out var mappedValue))
                 return mappedValue;
             
@@ -43,8 +45,12 @@ namespace SnmpMonitor.Services
             string altKey = "." + normalizedKey;
             if (mapping.TryGetValue(altKey, out mappedValue))
                 return mappedValue;
+            
+            // For numeric types, also try direct string comparison
+            if (mapping.TryGetValue(rawValue!, out mappedValue))
+                return mappedValue;
                 
-            return rawValue;
+            return rawValue!;
         }
 
         private static string FormatSpeed(string value)

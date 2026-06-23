@@ -6,6 +6,7 @@ using Lextm.SharpSnmpLib;
 using Lextm.SharpSnmpLib.Messaging;
 using SnmpMonitor.Config;
 using SnmpMonitor.Logging;
+using SnmpMonitor.Models;
 using SnmpMonitor.Results;
 
 namespace SnmpMonitor.Services
@@ -45,12 +46,52 @@ namespace SnmpMonitor.Services
         {
             try
             {
-                string baseOid = OidConfigLoader.GetScalarOid(category, name);
+                // Find scalar group (isTable=false) by category
+                var config = OidConfigLoader.Load();
+                var scalarGroup = config.Tables
+                    .FirstOrDefault(t => !t.IsTable && 
+                        (t.Category.Equals(category, StringComparison.OrdinalIgnoreCase) ||
+                         t.Id.EndsWith("_scalars", StringComparison.OrdinalIgnoreCase) && 
+                         t.Category.Equals(category, StringComparison.OrdinalIgnoreCase)));
                 
-                // For scalar values, append .0 to OID if not already present
-                string oid = baseOid.EndsWith(".0") ? baseOid : baseOid + ".0";
+                if (scalarGroup == null)
+                {
+                    _logger.Error("Scalar group not found for category: {0}", category);
+                    return Result<string>.Failure("Scalar group not found in configuration");
+                }
                 
-                _logger.Debug("Requesting OID: {0} ({1}.{2})", oid, category, name);
+                // Find column with the specified name
+                var column = scalarGroup.Columns
+                    .FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                
+                if (column == null)
+                {
+                    _logger.Error("Column '{0}' not found in group '{1}'", name, scalarGroup.Id);
+                    return Result<string>.Failure("Column not found in scalar group");
+                }
+                
+                string baseOid = column.Oid;
+                
+                if (string.IsNullOrEmpty(baseOid))
+                {
+                    _logger.Error("OID not found for {0}.{1}", category, name);
+                    return Result<string>.Failure("OID not found in configuration");
+                }
+                
+                // For scalar values, SNMP requires adding .0 to the OID
+                // Remove all leading and trailing dots, then add .0 and leading dot
+                string oid = baseOid.Trim('.');
+                
+                // Add .0 for scalar value
+                oid = oid + ".0";
+                
+                // Add leading dot for Lextm.SharpSnmpLib format
+                if (!oid.StartsWith("."))
+                {
+                    oid = "." + oid;
+                }
+                
+                _logger.Debug("Requesting OID: {0} ({1}.{2}, base OID: {3})", oid, category, name, baseOid);
                 
                 var version = VersionCode.V2;
                 var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), 161);
@@ -62,12 +103,22 @@ namespace SnmpMonitor.Services
                 if (oidList.Count > 0 && oidList[0].Data != null)
                 {
                     var variable = oidList[0];
+                    
+                    // Check for SNMP error responses - these indicate the OID doesn't exist or isn't available
+                    if (variable.Data is NoSuchInstance ||
+                        variable.Data is NoSuchObject ||
+                        variable.Data is EndOfMibView)
+                    {
+                        _logger.Warn("SNMP responded that OID is unavailable: {0}", oid);
+                        return Result<string>.Failure("OID not available on device");
+                    }
+                    
                     string value = _decoder.Decode(variable.Data);
-                    _logger.Debug("Received: {0} = {1}", oid, value);
+                    _logger.Debug("Received: {0} = {1} (type: {2})", oid, value, variable.Data.GetType().Name);
                     return Result<string>.Success(value);
                 }
                 
-                _logger.Warn("Empty response for OID: {0}", oid);
+                _logger.Warn("Empty response for OID: {0}. Data type: {1}", oid, oidList[0].Data?.GetType().Name ?? "null");
                 return Result<string>.Failure("No data received");
             }
             catch (Exception ex)
@@ -86,36 +137,36 @@ namespace SnmpMonitor.Services
             
             try
             {
-                TableConfig tableConfig = OidConfigLoader.GetTableConfig(tableKey);
-                _logger.Debug("Walking table: {0} (OID: {1})", tableConfig.Name, tableConfig.BaseOid);
+                TableDefinition? tableConfig = OidConfigLoader.GetTableById(tableKey);
                 
-                // Load common value mapping for table if specified
-                Dictionary<string, string>? tableValueMap = null;
-                if (!string.IsNullOrEmpty(tableConfig.ValueMapping))
+                if (tableConfig == null)
                 {
-                    tableValueMap = OidConfigLoader.LoadValueMapping(tableConfig.ValueMapping);
+                    _logger.Error("Table '{0}' not found in configuration", tableKey);
+                    return Result<Dictionary<string, Dictionary<string, string>>>.Failure($"Table '{tableKey}' not found");
                 }
                 
-                // Collect data for each field
+                _logger.Debug("Walking table: {0} (OID: {1})", tableConfig.DisplayName, tableConfig.RootOid ?? tableConfig.Id);
+                
+                // Collect data for each column
                 var fieldData = new Dictionary<string, Dictionary<string, string>>();
                 
-                foreach (var field in tableConfig.Fields)
+                foreach (var column in tableConfig.Columns)
                 {
-                    // Load field-specific value mapping if specified (overrides table mapping)
-                    Dictionary<string, string>? fieldValueMap = null;
-                    if (!string.IsNullOrEmpty(field.ValueMapping))
+                    // Load value mapping if specified
+                    Dictionary<string, string>? columnValueMap = null;
+                    if (!string.IsNullOrEmpty(column.MappingKey))
                     {
-                        fieldValueMap = OidConfigLoader.LoadValueMapping(field.ValueMapping);
+                        columnValueMap = OidConfigLoader.LoadValueMapping("Config/oid-mappings.json");
                     }
                     
                     var walkResult = WalkSingleField(
-                        field.Oid, 
-                        field.Type, 
-                        field.Format, 
-                        field.Map, 
-                        fieldValueMap ?? tableValueMap);
+                        column.Oid, 
+                        column.Type, 
+                        column.Format, 
+                        column.MappingKey, 
+                        columnValueMap);
                     
-                    fieldData[field.Name] = walkResult;
+                    fieldData[column.Name] = walkResult;
                 }
                 
                 // Determine indexes (combine all keys)
@@ -142,7 +193,7 @@ namespace SnmpMonitor.Services
                     result[index] = entry;
                 }
                 
-                _logger.Debug("Walk {0}: received {1} records", tableConfig.Name, result.Count);
+                _logger.Debug("Walk {0}: received {1} records", tableConfig.DisplayName, result.Count);
                 return Result<Dictionary<string, Dictionary<string, string>>>.Success(result);
             }
             catch (Exception ex)
@@ -157,9 +208,9 @@ namespace SnmpMonitor.Services
         /// </summary>
         private Dictionary<string, string> WalkSingleField(
             string rootOid, 
-            string? fieldType = null, 
+            ColumnType columnType = ColumnType.Column, 
             string? format = null, 
-            Dictionary<string, string>? map = null, 
+            string? mappingKey = null, 
             Dictionary<string, string>? valueMapping = null)
         {
             var result = new Dictionary<string, string>();
@@ -182,7 +233,16 @@ namespace SnmpMonitor.Services
                     string index = fullOid.Substring(rootOid.Length);
                     if (index.StartsWith(".")) index = index.Substring(1);
                     
-                    string value = DecodeFieldValue(variable, index, fieldType, format, map, valueMapping);
+                    // Convert ColumnType to string for DecodeFieldValue
+                    string? fieldType = columnType switch
+                    {
+                        ColumnType.Index => "index",
+                        ColumnType.Scalar => "scalar",
+                        ColumnType.Column => GetFormatType(format),
+                        _ => null
+                    };
+                    
+                    string value = DecodeFieldValue(variable, index, fieldType, format, mappingKey, valueMapping);
                     result[index] = value;
                 }
             }
@@ -195,6 +255,23 @@ namespace SnmpMonitor.Services
         }
 
         /// <summary>
+        /// Get field type string from format
+        /// </summary>
+        private static string? GetFormatType(string? format)
+        {
+            if (string.IsNullOrEmpty(format)) return null;
+            
+            return format.ToLower() switch
+            {
+                "ipaddress" or "ipaddr" => "ipaddr",
+                "macaddress" or "macaddr" => "macaddress",
+                "long" or "int" or "uint" or "ulong" => format.ToLower(),
+                "oid" => "oid",
+                _ => null
+            };
+        }
+
+        /// <summary>
         /// Decode a field value based on its type
         /// </summary>
         private string DecodeFieldValue(
@@ -202,7 +279,7 @@ namespace SnmpMonitor.Services
             string index,
             string? fieldType,
             string? format,
-            Dictionary<string, string>? map,
+            string? mappingKey,
             Dictionary<string, string>? valueMapping)
         {
             // Handle 'index' type - value comes from OID index
@@ -212,12 +289,14 @@ namespace SnmpMonitor.Services
             // Handle 'ipaddr' type
             if (fieldType == "ipaddr")
             {
-
-                // Validate IP format
-                if (IsValidIpAddress(_decoder.DecodeIndexToIpAddress(index)))
-                    return _decoder.DecodeIndexToIpAddress(index);
+                // First try to decode IP address from OID index (main format for ARP and routing tables)
+                string decodedFromIndex = _decoder.DecodeIndexToIpAddress(index);
                 
-                // Try to get bytes from OctetString
+                // Validate IP format from index
+                if (IsValidIpAddress(decodedFromIndex))
+                    return decodedFromIndex;
+                
+                // Try to get bytes from OctetString directly
                 if (variable.Data is OctetString octetStr)
                 {
                     byte[] bytes = octetStr.ToBytes();
@@ -254,19 +333,23 @@ namespace SnmpMonitor.Services
                 
                 if (valueMapping != null && !string.IsNullOrEmpty(numericValue))
                 {
-                    return valueMapping.TryGetValue(numericValue, out var mapped) 
-                        ? mapped 
-                        : numericValue;
+                    return _formatter.ApplyMapping(numericValue, valueMapping);
                 }
                 
                 return numericValue ?? "N/A";
             }
 
-            // Handle 'oid' type with valueMapping
-            if (fieldType == "oid" && valueMapping != null)
+            // Handle 'oid' type with valueMapping - use decoder to get the raw OID string
+            if (fieldType == "oid")
             {
-                string rawValue = variable.Data.ToString();
-                return _formatter.ApplyMapping(rawValue, valueMapping);
+                string rawValue = _decoder.Decode(variable.Data);
+                
+                if (valueMapping != null)
+                {
+                    return _formatter.ApplyMapping(rawValue, valueMapping);
+                }
+                
+                return rawValue;
             }
 
             // Default: decode and apply mappings
@@ -274,9 +357,6 @@ namespace SnmpMonitor.Services
             
             if (valueMapping != null && valueMapping.TryGetValue(decodedValue, out var mappedValue))
                 return mappedValue;
-            
-            if (map != null && map.TryGetValue(decodedValue, out var inlineMappedValue))
-                return inlineMappedValue;
             
             return decodedValue;
         }

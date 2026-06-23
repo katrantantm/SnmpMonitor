@@ -27,6 +27,10 @@ namespace SnmpMonitor.Services
         {
             if (asnValue == null) return string.Empty;
 
+            // Handle ObjectIdentifier (OID type) - return the OID as string without any transformation
+            if (asnValue is ObjectIdentifier oid)
+                return oid.ToString();
+
             // Handle Integer/Integer32
             if (asnValue is Integer32 asnInt)
                 return asnInt.ToInt32().ToString();
@@ -125,6 +129,7 @@ namespace SnmpMonitor.Services
             }
 
             // Format 2: Binary format - each character represents a byte
+            // This handles cases where the index contains actual byte values as characters
             if (index.Length >= 4)
             {
                 try
@@ -141,7 +146,7 @@ namespace SnmpMonitor.Services
                         }
                         octets[i] = (byte)codePoint;
                     }
-                    if (allValid)
+                    if (allValid && octets[0] <= 255)
                         return $"{octets[0]}.{octets[1]}.{octets[2]}.{octets[3]}";
                 }
                 catch { }

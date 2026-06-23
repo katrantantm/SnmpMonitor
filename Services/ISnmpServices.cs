@@ -15,7 +15,7 @@ namespace SnmpMonitor.Services
         /// <summary>
         /// Applies value mapping to a raw value
         /// </summary>
-        string ApplyMapping(string rawValue, System.Collections.Generic.Dictionary<string, string>? mapping);
+        string ApplyMapping(string? rawValue, System.Collections.Generic.Dictionary<string, string>? mapping);
     }
 
     /// <summary>

@@ -1,181 +1,232 @@
 {
-  "tables": {
-    "interfaces": {
-      "name": "Network Interfaces",
+  "tables": [
+    {
+      "id": "interfaces",
+      "displayName": "Network Interfaces",
+      "category": "network",
       "description": "Информация о сетевых интерфейсах (IF-MIB + IF-X-MIB)",
-      "baseOid": ".1.3.6.1.2.1.2.2.1",
-      "useHighCapacity": true,
-      "fields": [
-        { "name": "Index", "oid": ".1.3.6.1.2.1.2.2.1.1", "type": "index" },
-        { "name": "Description", "oid": ".1.3.6.1.2.1.31.1.1.1.18", "type": "string", "encoding": "utf8" },
-        { "name": "Name", "oid": ".1.3.6.1.2.1.31.1.1.1.1", "type": "string" },
+      "isTable": true,
+      "rootOid": ".1.3.6.1.2.1.2",
+      "columns": [
+        { "name": "Index", "oid": ".1.3.6.1.2.1.2.2.1.1", "type": "Index" },
+        { "name": "Description", "oid": ".1.3.6.1.2.1.31.1.1.1.18", "type": "Column", "format": "string" },
+        { "name": "Name", "oid": ".1.3.6.1.2.1.31.1.1.1.1", "type": "Column", "format": "string" },
         { 
           "name": "Type", 
           "oid": ".1.3.6.1.2.1.2.2.1.3", 
-          "type": "long",
-          "valueMapping": "ifType"
+          "type": "Column",
+          "mapping": "ifType"
         },
-        { "name": "Mtu", "oid": ".1.3.6.1.2.1.2.2.1.4", "type": "long" },
+        { "name": "Mtu", "oid": ".1.3.6.1.2.1.2.2.1.4", "type": "Column", "format": "long" },
         { 
           "name": "Speed", 
           "oid": ".1.3.6.1.2.1.31.1.1.1.15", 
-          "type": "long", 
-          "format": "speed_mbps" 
+          "type": "Column",
+          "format": "speed_mbps"
         },
-        { "name": "AdminStatus", "oid": ".1.3.6.1.2.1.2.2.1.7", "type": "long", "valueMapping": "ifAdminStatus" },
-        { "name": "OperStatus", "oid": ".1.3.6.1.2.1.2.2.1.8", "type": "long", "valueMapping": "ifOperStatus" },
-        { "name": "InOctets", "oid": ".1.3.6.1.2.1.31.1.1.1.6", "type": "ulong" },
-        { "name": "OutOctets", "oid": ".1.3.6.1.2.1.31.1.1.1.10", "type": "ulong" },
-        { "name": "InErrors", "oid": ".1.3.6.1.2.1.2.2.1.14", "type": "ulong" },
-        { "name": "OutErrors", "oid": ".1.3.6.1.2.1.2.2.1.20", "type": "ulong" },
-        { "name": "InDiscards", "oid": ".1.3.6.1.2.1.31.1.1.1.3", "type": "ulong" },
-        { "name": "OutDiscards", "oid": ".1.3.6.1.2.1.31.1.1.1.4", "type": "ulong" }
+        { "name": "AdminStatus", "oid": ".1.3.6.1.2.1.2.2.1.7", "type": "Column", "mapping": "ifAdminStatus" },
+        { "name": "OperStatus", "oid": ".1.3.6.1.2.1.2.2.1.8", "type": "Column", "mapping": "ifOperStatus" },
+        { "name": "InOctets", "oid": ".1.3.6.1.2.1.31.1.1.1.6", "type": "Column", "format": "ulong" },
+        { "name": "OutOctets", "oid": ".1.3.6.1.2.1.31.1.1.1.10", "type": "Column", "format": "ulong" },
+        { "name": "InErrors", "oid": ".1.3.6.1.2.1.2.2.1.14", "type": "Column", "format": "ulong" },
+        { "name": "OutErrors", "oid": ".1.3.6.1.2.1.2.2.1.20", "type": "Column", "format": "ulong" }
       ]
     },
-    "ipAddresses": {
-      "name": "IP Addresses",
+    {
+      "id": "ipAddresses",
+      "displayName": "IP Addresses",
+      "category": "network",
       "description": "IP адреса",
-      "baseOid": ".1.3.6.1.2.1.4.20.1",
-      "fields": [
-        { "name": "Address", "oid": ".1.3.6.1.2.1.4.20.1.1", "type": "ipaddr" },
-        { "name": "IfIndex", "oid": ".1.3.6.1.2.1.4.20.1.2", "type": "int" },
-        { "name": "Mask", "oid": ".1.3.6.1.2.1.4.20.1.3", "type": "ipaddr" },
-        { "name": "BroadcastAddr", "oid": ".1.3.6.1.2.1.4.20.1.4", "type": "int" },
-        { "name": "ReasmMaxSize", "oid": ".1.3.6.1.2.1.4.20.1.5", "type": "int" }
+      "isTable": true,
+      "rootOid": ".1.3.6.1.2.1.4.20",
+      "columns": [
+        { "name": "Address", "oid": ".1.3.6.1.2.1.4.20.1.1", "type": "Column", "format": "IpAddress" },
+        { "name": "IfIndex", "oid": ".1.3.6.1.2.1.4.20.1.2", "type": "Column", "format": "int" },
+        { "name": "Mask", "oid": ".1.3.6.1.2.1.4.20.1.3", "type": "Column", "format": "IpAddress" }
       ]
     },
-    "arpTable": {
-      "name": "ARP Table",
+    {
+      "id": "arpTable",
+      "displayName": "ARP Table",
+      "category": "network",
       "description": "ARP таблица",
-      "baseOid": ".1.3.6.1.2.1.4.22.1",
-      "valueMapping": "ipNetToMediaType",
-      "fields": [
-        { "name": "IfIndex", "oid": ".1.3.6.1.2.1.4.22.1.1", "type": "int" },
-        { "name": "PhysAddress", "oid": ".1.3.6.1.2.1.4.22.1.2", "type": "macaddress" },
-        { "name": "NetAddress", "oid": ".1.3.6.1.2.1.4.22.1.3", "type": "ipaddr" },
-        { "name": "Type", "oid": ".1.3.6.1.2.1.4.22.1.4", "type": "int" }
+      "isTable": true,
+      "rootOid": ".1.3.6.1.2.1.4.22",
+      "columns": [
+        { "name": "IfIndex", "oid": ".1.3.6.1.2.1.4.22.1.1", "type": "Column", "format": "int" },
+        { "name": "PhysAddress", "oid": ".1.3.6.1.2.1.4.22.1.2", "type": "Column", "format": "MacAddress" },
+        { "name": "NetAddress", "oid": ".1.3.6.1.2.1.4.22.1.3", "type": "Column", "format": "IpAddress" },
+        { "name": "Type", "oid": ".1.3.6.1.2.1.4.22.1.4", "type": "Column", "mapping": "ipNetToMediaType" }
       ]
     },
-    "routingTable": {
-      "name": "Routing Table",
+    {
+      "id": "routingTable",
+      "displayName": "Routing Table",
+      "category": "network",
       "description": "Таблица маршрутизации",
-      "baseOid": ".1.3.6.1.2.1.4.21.1",
-      "valueMapping": "ipRouteType",
-      "fields": [
-        { "name": "Dest", "oid": ".1.3.6.1.2.1.4.21.1.1", "type": "ipaddr" },
-        { "name": "IfIndex", "oid": ".1.3.6.1.2.1.4.21.1.2", "type": "int" },
-        { "name": "Metric", "oid": ".1.3.6.1.2.1.4.21.1.3", "type": "int" },
-        { "name": "NextHop", "oid": ".1.3.6.1.2.1.4.21.1.7", "type": "ipaddr" },
-        { "name": "Type", "oid": ".1.3.6.1.2.1.4.21.1.8", "type": "int" },
-        { "name": "Proto", "oid": ".1.3.6.1.2.1.4.21.1.9", "type": "int", "valueMapping": "ipRouteProto" },
-        { "name": "Age", "oid": ".1.3.6.1.2.1.4.21.1.10", "type": "int" },
-        { "name": "Mask", "oid": ".1.3.6.1.2.1.4.21.1.11", "type": "ipaddr" }
+      "isTable": true,
+      "rootOid": ".1.3.6.1.2.1.4.21",
+      "columns": [
+        { "name": "Dest", "oid": ".1.3.6.1.2.1.4.21.1.1", "type": "Column", "format": "IpAddress" },
+        { "name": "IfIndex", "oid": ".1.3.6.1.2.1.4.21.1.2", "type": "Column", "format": "int" },
+        { "name": "Metric", "oid": ".1.3.6.1.2.1.4.21.1.3", "type": "Column", "format": "int" },
+        { "name": "NextHop", "oid": ".1.3.6.1.2.1.4.21.1.7", "type": "Column", "format": "IpAddress" },
+        { "name": "Type", "oid": ".1.3.6.1.2.1.4.21.1.8", "type": "Column", "mapping": "ipRouteType" },
+        { "name": "Proto", "oid": ".1.3.6.1.2.1.4.21.1.9", "type": "Column", "mapping": "ipRouteProto" },
+        { "name": "Age", "oid": ".1.3.6.1.2.1.4.21.1.10", "type": "Column", "format": "int" },
+        { "name": "Mask", "oid": ".1.3.6.1.2.1.4.21.1.11", "type": "Column", "format": "IpAddress" }
       ]
     },
-    "storage": {
-      "name": "Storage",
+    {
+      "id": "storage",
+      "displayName": "Storage",
+      "category": "system",
       "description": "Информация о дисках",
-      "baseOid": ".1.3.6.1.2.1.25.2.3.1",
-      "valueMapping": "hrStorageType",
-      "fields": [
-        { "name": "Index", "oid": ".1.3.6.1.2.1.25.2.3.1.1", "type": "index" },
+      "isTable": true,
+      "rootOid": ".1.3.6.1.2.1.25.2.3",
+      "columns": [
+        { "name": "Index", "oid": ".1.3.6.1.2.1.25.2.3.1.1", "type": "Index" },
         { 
           "name": "Type", 
           "oid": ".1.3.6.1.2.1.25.2.3.1.2", 
-          "type": "oid",
-          "valueMapping": "hrStorageType"
+          "type": "Column",
+          "format": "oid",
+          "mapping": "hrStorageType"
         },
-        { "name": "Descr", "oid": ".1.3.6.1.2.1.25.2.3.1.3", "type": "string" },
-        { "name": "Units", "oid": ".1.3.6.1.2.1.25.2.3.1.4", "type": "long" },
-        { "name": "Size", "oid": ".1.3.6.1.2.1.25.2.3.1.5", "type": "long" },
-        { "name": "Used", "oid": ".1.3.6.1.2.1.25.2.3.1.6", "type": "long" }
+        { "name": "Descr", "oid": ".1.3.6.1.2.1.25.2.3.1.3", "type": "Column", "format": "string" },
+        { "name": "Units", "oid": ".1.3.6.1.2.1.25.2.3.1.4", "type": "Column", "format": "long" },
+        { "name": "Size", "oid": ".1.3.6.1.2.1.25.2.3.1.5", "type": "Column", "format": "long" },
+        { "name": "Used", "oid": ".1.3.6.1.2.1.25.2.3.1.6", "type": "Column", "format": "long" }
       ]
     },
-    "cpu": {
-      "name": "CPU",
+    {
+      "id": "cpu",
+      "displayName": "CPU Load",
+      "category": "system",
       "description": "Загрузка процессора",
-      "baseOid": ".1.3.6.1.2.1.25.3.3.1",
-      "fields": [
-        { "name": "Index", "oid": ".1.3.6.1.2.1.25.3.3.1.1", "type": "index" },
-        { "name": "Load", "oid": ".1.3.6.1.2.1.25.3.3.1.2", "type": "int" }
+      "isTable": true,
+      "rootOid": ".1.3.6.1.2.1.25.3.3",
+      "columns": [
+        { "name": "Index", "oid": ".1.3.6.1.2.1.25.3.3.1.1", "type": "Index" },
+        { "name": "Load", "oid": ".1.3.6.1.2.1.25.3.3.1.2", "type": "Column", "format": "int" }
       ]
     },
-    "processes": {
-      "name": "Processes",
+    {
+      "id": "processes",
+      "displayName": "Processes",
+      "category": "system",
       "description": "Список процессов",
-      "baseOid": ".1.3.6.1.2.1.25.4.2.1",
-      "valueMapping": "hrSWRunType",
-      "fields": [
-        { "name": "Index", "oid": ".1.3.6.1.2.1.25.4.2.1.1", "type": "index" },
-        { "name": "Name", "oid": ".1.3.6.1.2.1.25.4.2.1.2", "type": "string" },
-        { "name": "ID", "oid": ".1.3.6.1.2.1.25.4.2.1.3", "type": "int" },
-        { "name": "Path", "oid": ".1.3.6.1.2.1.25.4.2.1.4", "type": "string" },
-        { "name": "Params", "oid": ".1.3.6.1.2.1.25.4.2.1.5", "type": "string" },
-        { "name": "Type", "oid": ".1.3.6.1.2.1.25.4.2.1.6", "type": "int" },
-        { "name": "Status", "oid": ".1.3.6.1.2.1.25.4.2.1.7", "type": "int", "valueMapping": "hrSWRunStatus" }
+      "isTable": true,
+      "rootOid": ".1.3.6.1.2.1.25.4.2",
+      "columns": [
+        { "name": "Index", "oid": ".1.3.6.1.2.1.25.4.2.1.1", "type": "Index" },
+        { "name": "Name", "oid": ".1.3.6.1.2.1.25.4.2.1.2", "type": "Column", "format": "string" },
+        { "name": "ID", "oid": ".1.3.6.1.2.1.25.4.2.1.3", "type": "Column", "format": "int" },
+        { "name": "Path", "oid": ".1.3.6.1.2.1.25.4.2.1.4", "type": "Column", "format": "string" },
+        { "name": "Params", "oid": ".1.3.6.1.2.1.25.4.2.1.5", "type": "Column", "format": "string" },
+        { "name": "Type", "oid": ".1.3.6.1.2.1.25.4.2.1.6", "type": "Column", "mapping": "hrSWRunType" },
+        { "name": "Status", "oid": ".1.3.6.1.2.1.25.4.2.1.7", "type": "Column", "mapping": "hrSWRunStatus" }
       ]
     },
-    "devices": {
-      "name": "Devices",
+    {
+      "id": "devices",
+      "displayName": "Devices",
+      "category": "system",
       "description": "Устройства системы",
-      "baseOid": ".1.3.6.1.2.1.25.3.2.1",
-      "valueMapping": "hrDeviceType",
-      "fields": [
-        { "name": "Index", "oid": ".1.3.6.1.2.1.25.3.2.1.1", "type": "index" },
+      "isTable": true,
+      "rootOid": ".1.3.6.1.2.1.25.3.2",
+      "columns": [
+        { "name": "Index", "oid": ".1.3.6.1.2.1.25.3.2.1.1", "type": "Index" },
         { 
           "name": "Type", 
           "oid": ".1.3.6.1.2.1.25.3.2.1.2", 
-          "type": "oid",
-          "valueMapping": "hrDeviceType"
+          "type": "Column",
+          "format": "oid",
+          "mapping": "hrDeviceType"
         },
-        { "name": "Descr", "oid": ".1.3.6.1.2.1.25.3.2.1.3", "type": "string" },
-        { "name": "ID", "oid": ".1.3.6.1.2.1.25.3.2.1.4", "type": "string" },
-        { "name": "Status", "oid": ".1.3.6.1.2.1.25.3.2.1.5", "type": "int", "valueMapping": "hrDeviceStatus" },
-        { "name": "Errors", "oid": ".1.3.6.1.2.1.25.3.2.1.6", "type": "uint" }
+        { "name": "Descr", "oid": ".1.3.6.1.2.1.25.3.2.1.3", "type": "Column", "format": "string" },
+        { "name": "Status", "oid": ".1.3.6.1.2.1.25.3.2.1.5", "type": "Column", "mapping": "hrDeviceStatus" },
+        { "name": "Errors", "oid": ".1.3.6.1.2.1.25.3.2.1.6", "type": "Column", "format": "uint" }
       ]
     },
-    "temperature": {
-      "name": "Temperature Sensors",
-      "description": "Датчики температуры сервера",
-      "baseOid": ".1.3.6.1.4.1.2021.13.16.2.1",
-      "fields": [
-        { "name": "Index", "oid": ".1.3.6.1.4.1.2021.13.16.2.1.1", "type": "index" },
-        { "name": "Name", "oid": ".1.3.6.1.4.1.2021.13.16.2.1.2", "type": "string" },
-        { "name": "Value", "oid": ".1.3.6.1.4.1.2021.13.16.2.1.3", "type": "int" }
+    {
+      "id": "system_scalars",
+      "displayName": "System Information",
+      "category": "system",
+      "description": "Скалярные параметры системы",
+      "isTable": false,
+      "rootOid": "",
+      "columns": [
+        { "name": "SysDescr", "oid": ".1.3.6.1.2.1.1.1", "type": "Scalar", "format": "string" },
+        { "name": "SysUpTime", "oid": ".1.3.6.1.2.1.1.3", "type": "Scalar", "format": "TimeTicks" },
+        { "name": "SysContact", "oid": ".1.3.6.1.2.1.1.4", "type": "Scalar", "format": "string" },
+        { "name": "SysName", "oid": ".1.3.6.1.2.1.1.5", "type": "Scalar", "format": "string" },
+        { "name": "SysLocation", "oid": ".1.3.6.1.2.1.1.6", "type": "Scalar", "format": "string" }
+      ]
+    },
+    {
+      "id": "ipStats_scalars",
+      "displayName": "IP Statistics",
+      "category": "network",
+      "description": "Скалярные параметры IP",
+      "isTable": false,
+      "rootOid": "",
+      "columns": [
+        { "name": "IpForwarding", "oid": ".1.3.6.1.2.1.4.1", "type": "Scalar", "mapping": "ipForwarding" },
+        { "name": "IpInReceives", "oid": ".1.3.6.1.2.1.4.3", "type": "Scalar", "format": "long" },
+        { "name": "IpOutRequests", "oid": ".1.3.6.1.2.1.4.10", "type": "Scalar", "format": "long" }
+      ]
+    },
+    {
+      "id": "tcpStats_scalars",
+      "displayName": "TCP Statistics",
+      "category": "network",
+      "description": "Скалярные параметры TCP",
+      "isTable": false,
+      "rootOid": "",
+      "columns": [
+        { "name": "TcpMaxConn", "oid": ".1.3.6.1.2.1.6.4", "type": "Scalar", "format": "long" },
+        { "name": "TcpInSegs", "oid": ".1.3.6.1.2.1.6.10", "type": "Scalar", "format": "long" },
+        { "name": "TcpOutSegs", "oid": ".1.3.6.1.2.1.6.11", "type": "Scalar", "format": "long" }
+      ]
+    },
+    {
+      "id": "udpStats_scalars",
+      "displayName": "UDP Statistics",
+      "category": "network",
+      "description": "Скалярные параметры UDP",
+      "isTable": false,
+      "rootOid": "",
+      "columns": [
+        { "name": "UdpInDatagrams", "oid": ".1.3.6.1.2.1.7.1", "type": "Scalar", "format": "long" },
+        { "name": "UdpOutDatagrams", "oid": ".1.3.6.1.2.1.7.4", "type": "Scalar", "format": "long" }
+      ]
+    },
+    {
+      "id": "icmpStats_scalars",
+      "displayName": "ICMP Statistics",
+      "category": "network",
+      "description": "Скалярные параметры ICMP",
+      "isTable": false,
+      "rootOid": "",
+      "columns": [
+        { "name": "IcmpInMsgs", "oid": ".1.3.6.1.2.1.5.1", "type": "Scalar", "format": "long" },
+        { "name": "IcmpOutMsgs", "oid": ".1.3.6.1.2.1.5.14", "type": "Scalar", "format": "long" },
+        { "name": "IcmpInEchos", "oid": ".1.3.6.1.2.1.5.8", "type": "Scalar", "format": "long" },
+        { "name": "IcmpOutEchos", "oid": ".1.3.6.1.2.1.5.21", "type": "Scalar", "format": "long" }
+      ]
+    },
+    {
+      "id": "snmpStats_scalars",
+      "displayName": "SNMP Statistics",
+      "category": "network",
+      "description": "Скалярные параметры SNMP",
+      "isTable": false,
+      "rootOid": "",
+      "columns": [
+        { "name": "SnmpInPkts", "oid": ".1.3.6.1.2.1.11.1", "type": "Scalar", "format": "long" },
+        { "name": "SnmpOutPkts", "oid": ".1.3.6.1.2.1.11.2", "type": "Scalar", "format": "long" }
       ]
     }
-  },
-  "scalars": {
-    "system": {
-      "SysDescr": ".1.3.6.1.2.1.1.1.0",
-      "SysUpTime": ".1.3.6.1.2.1.1.3.0",
-      "SysContact": ".1.3.6.1.2.1.1.4.0",
-      "SysName": ".1.3.6.1.2.1.1.5.0",
-      "SysLocation": ".1.3.6.1.2.1.1.6.0"
-    },
-    "ipStats": {
-      "IpForwarding": ".1.3.6.1.2.1.4.1.0",
-      "IpInReceives": ".1.3.6.1.2.1.4.3.0",
-      "IpOutRequests": ".1.3.6.1.2.1.4.10.0"
-    },
-    "tcpStats": {
-      "TcpMaxConn": ".1.3.6.1.2.1.6.4.0",
-      "TcpInSegs": ".1.3.6.1.2.1.6.10.0",
-      "TcpOutSegs": ".1.3.6.1.2.1.6.11.0"
-    },
-    "udpStats": {
-      "UdpInDatagrams": ".1.3.6.1.2.1.7.1.0",
-      "UdpOutDatagrams": ".1.3.6.1.2.1.7.4.0"
-    },
-    "icmpStats": {
-      "IcmpInMsgs": ".1.3.6.1.2.1.5.1.0",
-      "IcmpOutMsgs": ".1.3.6.1.2.1.5.14.0",
-      "IcmpInEchos": ".1.3.6.1.2.1.5.8.0",
-      "IcmpOutEchos": ".1.3.6.1.2.1.5.21.0"
-    },
-    "snmpStats": {
-      "SnmpInPkts": ".1.3.6.1.2.1.11.1.0",
-      "SnmpOutPkts": ".1.3.6.1.2.1.11.2.0"
-    }
-  }
+  ]
 }
