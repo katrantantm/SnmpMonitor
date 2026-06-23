@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using SnmpMonitor.Logging;
+using SnmpMonitor.Models;
 using SnmpMonitor.Snmp;
 
 namespace SnmpMonitor.Reporting
@@ -74,22 +75,22 @@ namespace SnmpMonitor.Reporting
         {
             _logger.Info("📋 Экспорт таблиц...");
             
-            var config = Config.OidConfigLoader.Load();
-            foreach (var tableKey in config.Tables.Keys)
+            var allTables = Config.OidConfigLoader.GetAllTables();
+            foreach (var table in allTables)
             {
                 try
                 {
-                    var data = _snmp.GetUniversalTable(tableKey);
+                    var data = _snmp.GetUniversalTable(table.Id);
                     if (data.Count > 0)
                     {
-                        _csvReporter.ExportTable(tableKey, data);
-                        _pdfReporter.ExportTable(tableKey, data);
-                        _logger.Info("   ✓ {0}: {1} записей", tableKey, data.Count);
+                        _csvReporter.ExportTable(table.Id, data);
+                        _pdfReporter.ExportTable(table.Id, data);
+                        _logger.Info("   ✓ {0}: {1} записей", table.DisplayName, data.Count);
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warn("Ошибка экспорта таблицы {0}: {1}", tableKey, ex.Message);
+                    _logger.Warn("Ошибка экспорта таблицы {0}: {1}", table.DisplayName, ex.Message);
                 }
             }
         }

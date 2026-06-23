@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using SnmpMonitor.Config;
 using SnmpMonitor.Logging;
+using SnmpMonitor.Models;
 
 namespace SnmpMonitor.Reporting
 {
@@ -32,11 +33,11 @@ namespace SnmpMonitor.Reporting
         /// <summary>
         /// Экспорт скалярных значений в CSV
         /// </summary>
-        public void ExportScalars(string category, Dictionary<string, string> values)
+        public void ExportScalars(string groupId, Dictionary<string, string> values)
         {
-            if (!_config.Scalars.ContainsKey(category) || values == null || values.Count == 0) return;
+            if (values == null || values.Count == 0) return;
 
-            string fileName = $"{category}_scalars.csv";
+            string fileName = $"{groupId}_scalars.csv";
             string filePath = Path.Combine(_outputPath, fileName);
             _logger.Info("Запись CSV: {0}", filePath);
 
@@ -60,15 +61,21 @@ namespace SnmpMonitor.Reporting
         /// </summary>
         public void ExportTable(string tableKey, Dictionary<string, Dictionary<string, string>> data)
         {
-            if (!_config.Tables.ContainsKey(tableKey) || data == null || data.Count == 0) return;
+            if (data == null || data.Count == 0) return;
 
-            var tableConfig = _config.Tables[tableKey];
+            var tableConfig = OidConfigLoader.GetTableById(tableKey);
+            if (tableConfig == null)
+            {
+                _logger.Warn("Таблица '{0}' не найдена в конфигурации", tableKey);
+                return;
+            }
+
             string fileName = $"{tableKey}.csv";
             string filePath = Path.Combine(_outputPath, fileName);
             _logger.Info("Запись CSV: {0}", filePath);
 
-            // Заголовки из конфигурации полей
-            var headers = tableConfig.Fields.Select(f => f.Name).ToArray();
+            // Заголовки из конфигурации колонок
+            var headers = tableConfig.Columns.Select(c => c.Name).ToArray();
             var rows = new List<string[]>();
 
             // Данные: каждая строка - значения полей для одного индекса
@@ -81,8 +88,8 @@ namespace SnmpMonitor.Reporting
                     string rawValue = entry.ContainsKey(fieldName) ? entry[fieldName] : "";
                     
                     // Применяем форматирование из конфигурации
-                    var fieldConfig = tableConfig.Fields.FirstOrDefault(f => f.Name == fieldName);
-                    row[i] = FormatValue(rawValue, fieldConfig);
+                    var columnConfig = tableConfig.Columns.FirstOrDefault(c => c.Name == fieldName);
+                    row[i] = FormatValue(rawValue, columnConfig);
                 }
                 rows.Add(row);
             }
@@ -91,22 +98,26 @@ namespace SnmpMonitor.Reporting
         }
 
         /// <summary>
-        /// Форматирование значения согласно конфигурации поля
+        /// Форматирование значения согласно конфигурации колонки
         /// </summary>
-        private string FormatValue(string rawValue, FieldConfig? fieldConfig)
+        private string FormatValue(string rawValue, ColumnDefinition? columnConfig)
         {
             if (string.IsNullOrEmpty(rawValue)) return "";
             
-            if (fieldConfig == null) return EscapeCsv(rawValue);
+            if (columnConfig == null) return EscapeCsv(rawValue);
             
-            // Применяем маппинг статусов
-            if (fieldConfig.Map != null && fieldConfig.Map.TryGetValue(rawValue, out var mappedValue))
+            // Применяем маппинг если указан
+            if (!string.IsNullOrEmpty(columnConfig.MappingKey))
             {
-                return EscapeCsv(mappedValue);
+                var mapping = OidConfigLoader.LoadValueMapping("Config/oid-mappings.json");
+                if (mapping != null && mapping.TryGetValue(rawValue, out var mappedValue))
+                {
+                    return EscapeCsv(mappedValue);
+                }
             }
             
             // Форматируем скорость (ifHighSpeed возвращается в Мбит/с)
-            if (fieldConfig.Format == "speed_mbps" && ulong.TryParse(rawValue, out ulong speedMbps))
+            if (columnConfig.Format == "speed_mbps" && ulong.TryParse(rawValue, out ulong speedMbps))
             {
                 if (speedMbps >= 1_000)
                     return EscapeCsv($"{(speedMbps / 1_000.0):F1} Gbps");
@@ -114,7 +125,7 @@ namespace SnmpMonitor.Reporting
             }
             
             // Если значение не числовое (например, OID или строка), возвращаем N/A
-            if (fieldConfig.Format == "speed_mbps")
+            if (columnConfig.Format == "speed_mbps")
             {
                 return EscapeCsv("N/A");
             }
@@ -127,19 +138,21 @@ namespace SnmpMonitor.Reporting
         /// </summary>
         public void ExportAllTables(Func<string, Dictionary<string, Dictionary<string, string>>> tableFetcher)
         {
-            foreach (var tableKey in _config.Tables.Keys)
+            var allTables = OidConfigLoader.GetAllTables();
+            
+            foreach (var table in allTables)
             {
                 try
                 {
-                    var data = tableFetcher(tableKey);
+                    var data = tableFetcher(table.Id);
                     if (data != null && data.Count > 0)
                     {
-                        ExportTable(tableKey, data);
+                        ExportTable(table.Id, data);
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.Warn("Ошибка экспорта таблицы {0}: {1}", tableKey, ex.Message);
+                    _logger.Warn("Ошибка экспорта таблицы {0}: {1}", table.Id, ex.Message);
                 }
             }
         }

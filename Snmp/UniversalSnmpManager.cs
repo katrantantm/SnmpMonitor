@@ -39,13 +39,52 @@ namespace SnmpMonitor.Snmp
         {
             try
             {
-                string baseOid = OidConfigLoader.GetScalarOid(category, name);
+                // Ищем скалярную группу (isTable=false) по category
+                var config = OidConfigLoader.Load();
+                var scalarGroup = config.Tables
+                    .FirstOrDefault(t => !t.IsTable && 
+                        (t.Category.Equals(category, StringComparison.OrdinalIgnoreCase) ||
+                         t.Id.EndsWith("_scalars", StringComparison.OrdinalIgnoreCase) && 
+                         t.Category.Equals(category, StringComparison.OrdinalIgnoreCase)));
                 
-                // Для скалярных значений необходимо добавлять .0 к OID
-                // Проверяем, есть ли уже .0 в конце OID (из конфигурации)
-                string oid = baseOid.EndsWith(".0") ? baseOid : baseOid + ".0";
+                if (scalarGroup == null)
+                {
+                    _logger.Error("Скалярная группа не найдена для категории: {0}", category);
+                    return "No Data";
+                }
                 
-                _logger.Debug("Запрос OID: {0} ({1}.{2})", oid, category, name);
+                // Ищем колонку с нужным именем
+                var column = scalarGroup.Columns
+                    .FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                
+                if (column == null)
+                {
+                    _logger.Error("Колонка '{0}' не найдена в группе '{1}'", name, scalarGroup.Id);
+                    return "No Data";
+                }
+                
+                string baseOid = column.Oid;
+                
+                if (string.IsNullOrEmpty(baseOid))
+                {
+                    _logger.Error("OID не найден для {0}.{1}", category, name);
+                    return "No Data";
+                }
+                
+                // Для скалярных значений SNMP требует добавления .0 к OID
+                // Удаляем все ведущие и завершающие точки, затем добавляем .0 и ведущую точку
+                string oid = baseOid.Trim('.');
+                
+                // Добавляем .0 для скалярного значения
+                oid = oid + ".0";
+                
+                // Добавляем ведущую точку для формата Lextm.SharpSnmpLib
+                if (!oid.StartsWith("."))
+                {
+                    oid = "." + oid;
+                }
+                
+                _logger.Debug("Запрос OID: {0} (категория: {1}, имя: {2}, базовый OID: {3})", oid, category, name, baseOid);
                 
                 var version = VersionCode.V2;
                 var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), 161);
@@ -57,14 +96,24 @@ namespace SnmpMonitor.Snmp
                 if (oidList.Count > 0 && oidList[0].Data != null)
                 {
                     var variable = oidList[0];
+                    
+                    // Проверяем тип ответа - если NoSuchInstance, значит значение недоступно
+                    if (variable.Data is NoSuchInstance ||
+                        variable.Data is NoSuchObject ||
+                        variable.Data is EndOfMibView)
+                    {
+                        _logger.Warn("SNMP ответил что OID недоступен: {0}", oid);
+                        return "No Data";
+                    }
+                    
                     // Передаем сам объект ISnmpData для декодирования
                     string value = DecodeRawData(variable.Data);
-                    _logger.Debug("Получено: {0} = {1}", oid, value);
+                    _logger.Debug("Получено: {0} = {1} (тип: {2})", oid, value, variable.Data.GetType().Name);
                     return value;
                 }
                 else if (oidList.Count > 0)
                 {
-                    _logger.Warn("Пустой ответ для OID: {0}", oid);
+                    _logger.Warn("Пустой ответ для OID: {0}. Тип данных: {1}", oid, oidList[0].Data?.GetType().Name ?? "null");
                 }
                 else
                 {
@@ -96,30 +145,30 @@ namespace SnmpMonitor.Snmp
             
             try
             {
-                TableConfig tableConfig = OidConfigLoader.GetTableConfig(tableKey);
-                _logger.Debug("Walk таблицы: {0} (OID: {1})", tableConfig.Name, tableConfig.BaseOid);
+                TableDefinition? tableConfig = OidConfigLoader.GetTableById(tableKey);
+                
+                if (tableConfig == null)
+                {
+                    _logger.Error("Таблица с ключом '{0}' не найдена в конфигурации", tableKey);
+                    return result;
+                }
+                
+                _logger.Debug("Walk таблицы: {0} (OID: {1})", tableConfig.DisplayName, tableConfig.RootOid ?? tableConfig.Id);
                 
                 // Собираем данные для каждого поля
                 var fieldData = new Dictionary<string, Dictionary<string, string>>();
                 
-                // Загружаем общий справочник значений для таблицы если указан
-                Dictionary<string, string>? tableValueMap = null;
-                if (!string.IsNullOrEmpty(tableConfig.ValueMapping))
+                foreach (var column in tableConfig.Columns)
                 {
-                    tableValueMap = OidConfigLoader.LoadValueMapping(tableConfig.ValueMapping);
-                }
-                
-                foreach (var field in tableConfig.Fields)
-                {
-                    // Загружаем индивидуальный справочник для поля если указан (переопределяет таблицу)
+                    // Загружаем маппинг для поля если указан
                     Dictionary<string, string>? fieldValueMap = null;
-                    if (!string.IsNullOrEmpty(field.ValueMapping))
+                    if (!string.IsNullOrEmpty(column.MappingKey))
                     {
-                        fieldValueMap = OidConfigLoader.LoadValueMapping(field.ValueMapping);
+                        fieldValueMap = OidConfigLoader.LoadValueMapping("Config/oid-mappings.json", column.MappingKey);
                     }
                     
-                    var walkResult = WalkSingleField(field.Oid, field.Type, field.Format, field.Map, fieldValueMap ?? tableValueMap);
-                    fieldData[field.Name] = walkResult;
+                    var walkResult = WalkSingleField(column.Oid, column.Type, column.Format, column.MappingKey, fieldValueMap);
+                    fieldData[column.Name] = walkResult;
                 }
                 
                 // Определяем индексы (объединяем все ключи)
@@ -146,7 +195,7 @@ namespace SnmpMonitor.Snmp
                     result[index] = entry;
                 }
                 
-                _logger.Debug("Walk {0}: получено {1} записей", tableConfig.Name, result.Count);
+                _logger.Debug("Walk {0}: получено {1} записей", tableConfig.DisplayName, result.Count);
             }
             catch (Exception ex)
             {
@@ -159,7 +208,7 @@ namespace SnmpMonitor.Snmp
         /// <summary>
         /// Walk одного поля таблицы
         /// </summary>
-        private Dictionary<string, string> WalkSingleField(string rootOid, string? fieldType = null, string? format = null, Dictionary<string, string>? map = null, Dictionary<string, string>? valueMapping = null)
+        private Dictionary<string, string> WalkSingleField(string rootOid, ColumnType columnType = ColumnType.Column, string? format = null, string? mappingKey = null, Dictionary<string, string>? valueMapping = null)
         {
             var result = new Dictionary<string, string>();
             
@@ -182,13 +231,13 @@ namespace SnmpMonitor.Snmp
                     if (index.StartsWith(".")) index = index.Substring(1);
                     
                     // Для полей типа "index" значение берётся из индекса OID
-                    if (fieldType == "index")
+                    if (columnType == ColumnType.Index)
                     {
                         // Просто возвращаем индекс как есть (число или строка)
                         result[index] = index;
                     }
                     // Для полей типа "ipaddr" декодируем IP адрес
-                    else if (fieldType == "ipaddr")
+                    else if (format == "ipaddr")
                     {
                         string decodedValue;
                         
@@ -242,7 +291,7 @@ namespace SnmpMonitor.Snmp
                         result[index] = decodedValue;
                     }
                     // Для полей типа "macaddress" декодируем MAC адрес из OctetString
-                    else if (fieldType == "macaddress")
+                    else if (format != null && format.ToLower() == "macaddress")
                     {
                         string decodedValue;
                         
@@ -252,7 +301,7 @@ namespace SnmpMonitor.Snmp
                             byte[] bytes = macOctetStr.ToBytes();
                             if (bytes.Length >= 6)
                             {
-                                decodedValue = $"{bytes[0]:X2}-{bytes[1]:X2}-{bytes[2]:X2}-{bytes[3]:X2}-{bytes[4]:X2}-{bytes[5]:X2}";
+                                decodedValue = $"{bytes[0]:X2}:{bytes[1]:X2}:{bytes[2]:X2}:{bytes[3]:X2}:{bytes[4]:X2}:{bytes[5]:X2}";
                             }
                             else
                             {
@@ -269,7 +318,7 @@ namespace SnmpMonitor.Snmp
                         result[index] = decodedValue;
                     }
                     // Для числовых полей (long, int, uint, ulong) с форматированием ИЛИ valueMapping
-                    else if ((fieldType == "long" || fieldType == "int" || fieldType == "uint" || fieldType == "ulong"))
+                    else if (!string.IsNullOrEmpty(format) && (format == "long" || format == "int" || format == "uint" || format == "ulong"))
                     {
                         // Берем значение напрямую из числового типа SNMP
                         string? numericValue = null;
@@ -336,9 +385,10 @@ namespace SnmpMonitor.Snmp
                         }
                     }
                     // Для полей типа oid с valueMapping
-                    else if (fieldType == "oid" && valueMapping != null)
+                    else if (format == "oid" && valueMapping != null)
                     {
-                        string rawValue = variable.Data.ToString();
+                        // Получаем OID значение через декодер
+                        string rawValue = DecodeRawData(variable.Data);
                         // OID может приходить с ведущей точкой или без - нормализуем
                         string decodedValue = rawValue.TrimStart('.');
                         
@@ -362,11 +412,6 @@ namespace SnmpMonitor.Snmp
                         if (valueMapping != null && valueMapping.TryGetValue(decodedValue, out var mappedValue))
                         {
                             decodedValue = mappedValue;
-                        }
-                        // Применяем встроенный маппинг если указан (для int типов)
-                        else if (map != null && map.TryGetValue(decodedValue, out var inlineMappedValue))
-                        {
-                            decodedValue = inlineMappedValue;
                         }
                         
                         result[index] = decodedValue;
@@ -448,7 +493,7 @@ namespace SnmpMonitor.Snmp
                     }
                     // Для IP адресов и масок принимаем любой диапазон (0-255 для первого октета)
                     // Маски могут быть 0.0.0.0, сети могут начинаться с 0 (по умолчанию)
-                    if (allValid)
+                    if (allValid && octets[0] <= 255)
                     {
                         return $"{octets[0]}.{octets[1]}.{octets[2]}.{octets[3]}";
                     }
@@ -511,6 +556,12 @@ namespace SnmpMonitor.Snmp
         private string DecodeRawData(ISnmpData asnValue)
         {
             if (asnValue == null) return string.Empty;
+            
+            // Обработка ObjectIdentifier (OID type) - возвращаем OID как строку
+            if (asnValue is ObjectIdentifier oid)
+            {
+                return oid.ToString();
+            }
             
             // Обработка Integer/Integer32 - возвращаем числовое значение
             if (asnValue is Integer32 asnInt)
@@ -971,25 +1022,35 @@ namespace SnmpMonitor.Snmp
         }
 
         /// <summary>
-        /// Получить скалярные значения категории как словарь
+        /// Получить скалярные значения группы как словарь
         /// </summary>
-        public Dictionary<string, string> GetScalars(string category)
+        public Dictionary<string, string> GetScalars(string groupId)
         {
             var result = new Dictionary<string, string>();
             try
             {
-                var config = OidConfigLoader.Load();
-                if (config.Scalars.ContainsKey(category))
+                // Ищем скалярную группу по ID или category
+                var scalarGroup = OidConfigLoader.GetScalarGroup(groupId);
+                
+                if (scalarGroup == null)
                 {
-                    foreach (var kvp in config.Scalars[category])
-                    {
-                        result[kvp.Key] = GetScalar(category, kvp.Key);
-                    }
+                    _logger.Warn("Скалярная группа '{0}' не найдена в конфигурации", groupId);
+                    return result;
                 }
+                
+                _logger.Debug("Запрос скалярных значений группы: {0} ({1})", scalarGroup.DisplayName, scalarGroup.Id);
+                
+                foreach (var column in scalarGroup.Columns)
+                {
+                    _logger.Debug("  Запрос скаляра: {0} (OID: {1})", column.Name, column.Oid);
+                    result[column.Name] = GetScalar(scalarGroup.Id, column.Name);
+                }
+                
+                _logger.Debug("Получено {0} скалярных значений", result.Count);
             }
             catch (Exception ex)
             {
-                _logger.Warn("Ошибка при запросе скаляров {0}: {1}", category, ex.Message);
+                _logger.Warn("Ошибка при запросе скаляров {0}: {1}", groupId, ex.Message);
             }
             return result;
         }
