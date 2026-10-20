@@ -24,6 +24,11 @@ target/
 dist/
 build/
 
+# .NET build artifacts
+bin/
+obj/
+*.user
+
 # Editors
 .vscode/
 .idea/

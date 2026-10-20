@@ -57,7 +57,8 @@ namespace SnmpMonitor.Services
         {
             "v1" => VersionCode.V1,
             "v3" => VersionCode.V3,
-            _ => VersionCode.V2c
+            // В Lextm.SharpSnmpLib SNMPv2c представлен значением V2 (в библиотеке нет отдельного V2c)
+            _ => VersionCode.V2
         };
 
         /// <summary>
@@ -263,13 +264,12 @@ namespace SnmpMonitor.Services
             
             try
             {
-                var version = VersionCode.V2;
-                var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), 161);
+                var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), SnmpPort);
                 var communityParam = new OctetString(_community);
                 var rootOidObj = new ObjectIdentifier(rootOid);
                 
                 var variables = new List<Variable>();
-                Messenger.Walk(version, endPoint, communityParam, rootOidObj, variables, _timeout, WalkMode.WithinSubtree);
+                Messenger.Walk(_version, endPoint, communityParam, rootOidObj, variables, _timeout, WalkMode.WithinSubtree);
                 
                 if (variables.Count == 0) return result;
 
