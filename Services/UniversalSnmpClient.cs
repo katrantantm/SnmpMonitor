@@ -16,27 +16,74 @@ namespace SnmpMonitor.Services
     /// </summary>
     public class UniversalSnmpClient : ISnmpClient
     {
+        /// <summary>Стандартный порт SNMP (RFC 3417)</summary>
+        public const int SnmpPort = 161;
+
         private readonly string _targetIp;
         private readonly string _community;
         private readonly ILogger _logger;
         private readonly ISnmpDataDecoder _decoder;
         private readonly IValueFormatter _formatter;
         private readonly int _timeout;
+        private readonly VersionCode _version;
+
+        // Кэш справочников значений: oid-mappings.json читается один раз на ключ
+        private readonly Dictionary<string, Dictionary<string, string>?> _mappingCache = new();
+        private Dictionary<string, string>? _flatMappingCache;
+        private bool _flatMappingLoaded;
 
         public UniversalSnmpClient(
-            string targetIp, 
-            string community, 
+            string targetIp,
+            string community,
             ILogger? logger = null,
             ISnmpDataDecoder? decoder = null,
             IValueFormatter? formatter = null,
-            int timeout = 5000)
+            int timeout = 5000,
+            string version = "v2c")
         {
             _targetIp = targetIp;
             _community = community;
             _logger = logger ?? new ConsoleLogger();
             _decoder = decoder ?? new SnmpDataDecoder(_logger);
             _formatter = formatter ?? new ValueFormatter();
-            _timeout = timeout;
+            _timeout = timeout > 0 ? timeout : 5000;
+            _version = ParseVersion(version);
+        }
+
+        /// <summary>
+        /// Разбор строковой версии SNMP из конфигурации ("v1", "v2c", "v3")
+        /// </summary>
+        private static VersionCode ParseVersion(string? version) => version?.Trim().ToLowerInvariant() switch
+        {
+            "v1" => VersionCode.V1,
+            "v3" => VersionCode.V3,
+            _ => VersionCode.V2c
+        };
+
+        /// <summary>
+        /// Кэшированная загрузка маппинга по ключу
+        /// </summary>
+        internal Dictionary<string, string>? GetCachedMapping(string mappingKey)
+        {
+            if (!_mappingCache.TryGetValue(mappingKey, out var cached))
+            {
+                cached = OidConfigLoader.LoadValueMapping("Config/oid-mappings.json", mappingKey);
+                _mappingCache[mappingKey] = cached;
+            }
+            return cached;
+        }
+
+        /// <summary>
+        /// Кэшированная загрузка всех маппингов плоским списком
+        /// </summary>
+        internal Dictionary<string, string>? GetCachedFlatMapping()
+        {
+            if (!_flatMappingLoaded)
+            {
+                _flatMappingCache = OidConfigLoader.LoadValueMapping("Config/oid-mappings.json");
+                _flatMappingLoaded = true;
+            }
+            return _flatMappingCache;
         }
 
         /// <summary>
@@ -49,10 +96,10 @@ namespace SnmpMonitor.Services
                 // Find scalar group (isTable=false) by category
                 var config = OidConfigLoader.Load();
                 var scalarGroup = config.Tables
-                    .FirstOrDefault(t => !t.IsTable && 
+                    .FirstOrDefault(t => !t.IsTable &&
                         (t.Category.Equals(category, StringComparison.OrdinalIgnoreCase) ||
-                         t.Id.EndsWith("_scalars", StringComparison.OrdinalIgnoreCase) && 
-                         t.Category.Equals(category, StringComparison.OrdinalIgnoreCase)));
+                         (t.Id.EndsWith("_scalars", StringComparison.OrdinalIgnoreCase) &&
+                          t.Category.Equals(category, StringComparison.OrdinalIgnoreCase))));
                 
                 if (scalarGroup == null)
                 {
@@ -93,12 +140,11 @@ namespace SnmpMonitor.Services
                 
                 _logger.Debug("Requesting OID: {0} ({1}.{2}, base OID: {3})", oid, category, name, baseOid);
                 
-                var version = VersionCode.V2;
-                var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), 161);
+                var endPoint = new IPEndPoint(IPAddress.Parse(_targetIp), SnmpPort);
                 var communityParam = new OctetString(_community);
                 var oidList = new List<Variable> { new Variable(new ObjectIdentifier(oid)) };
                 
-                Messenger.Get(version, endPoint, communityParam, oidList, _timeout);
+                Messenger.Get(_version, endPoint, communityParam, oidList, _timeout);
                 
                 if (oidList.Count > 0 && oidList[0].Data != null)
                 {
@@ -156,7 +202,7 @@ namespace SnmpMonitor.Services
                     Dictionary<string, string>? columnValueMap = null;
                     if (!string.IsNullOrEmpty(column.MappingKey))
                     {
-                        columnValueMap = OidConfigLoader.LoadValueMapping("Config/oid-mappings.json");
+                        columnValueMap = GetCachedMapping(column.MappingKey!) ?? GetCachedFlatMapping();
                     }
                     
                     var walkResult = WalkSingleField(

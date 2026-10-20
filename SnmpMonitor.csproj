@@ -16,4 +16,12 @@
     <PackageReference Include="QuestPDF" Version="2026.5.0" />
   </ItemGroup>
 
+  <!-- Конфигурационные файлы копируются в выходную директорию,
+       чтобы приложение находило их при запуске из bin/ или publish/ -->
+  <ItemGroup>
+    <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Config\snmp-tables.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Config\oid-mappings.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

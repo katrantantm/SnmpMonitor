@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 
@@ -14,7 +15,11 @@ namespace SnmpMonitor.Config
 
     public class SnmpSettings
     {
-        public string TargetIp { get; set; } = "87.242.86.112";
+        public string TargetIp { get; set; } = "127.0.0.1";
+        /// <summary>
+        /// SNMP community. Не хранится в репозитории — задаётся через appsettings.local.json
+        /// или переменную окружения SNMP_COMMUNITY (см. README).
+        /// </summary>
         public string Community { get; set; } = "public";
         public int Timeout { get; set; } = 5000;
         public int Retries { get; set; } = 3;
@@ -54,14 +59,37 @@ namespace SnmpMonitor.Config
 
                 try
                 {
-                    if (!File.Exists(configPath))
+                    var searchedPaths = new List<string>();
+                    string? actualPath = null;
+
+                    // 1. Относительно текущей директории
+                    if (File.Exists(configPath))
                     {
-                        Console.WriteLine($"⚠️ Файл конфигурации '{configPath}' не найден. Используются значения по умолчанию.");
+                        actualPath = configPath;
+                    }
+                    else
+                    {
+                        // 2. Относительно директории исполняемого файла (важно при запуске из bin/publish)
+                        searchedPaths.Add(configPath);
+                        string exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, configPath);
+                        if (File.Exists(exePath))
+                        {
+                            actualPath = exePath;
+                        }
+                        else
+                        {
+                            searchedPaths.Add(exePath);
+                        }
+                    }
+
+                    if (actualPath == null)
+                    {
+                        Console.WriteLine($"⚠️ Файл конфигурации '{string.Join("', '", searchedPaths)}' не найден. Используются значения по умолчанию.");
                         _config = CreateDefaultConfig();
                     }
                     else
                     {
-                        string json = File.ReadAllText(configPath);
+                        string json = File.ReadAllText(actualPath);
                         _config = JsonConvert.DeserializeObject<AppConfig>(json) ?? CreateDefaultConfig();
                         
                         // Создаем директорию для логов если не существует
@@ -80,22 +108,48 @@ namespace SnmpMonitor.Config
                             Directory.CreateDirectory(_config.Export.OutputPath);
                         }
                     }
+
+                    ApplyEnvironmentOverrides(_config);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"❌ Ошибка загрузки конфигурации: {ex.Message}");
                     _config = CreateDefaultConfig();
+                    ApplyEnvironmentOverrides(_config);
                 }
 
                 return _config;
             }
         }
 
+        /// <summary>
+        /// Переопределение чувствительных настроек через переменные окружения.
+        /// Позволяет не хранить секреты (SNMP community) в репозитории.
+        /// Поддерживаются: SNMP_TARGET_IP, SNMP_COMMUNITY, SNMP_TIMEOUT_MS
+        /// </summary>
+        private static void ApplyEnvironmentOverrides(AppConfig config)
+        {
+            if (config.Snmp == null)
+                config.Snmp = new SnmpSettings();
+
+            var targetIp = Environment.GetEnvironmentVariable("SNMP_TARGET_IP");
+            if (!string.IsNullOrWhiteSpace(targetIp))
+                config.Snmp.TargetIp = targetIp.Trim();
+
+            var community = Environment.GetEnvironmentVariable("SNMP_COMMUNITY");
+            if (!string.IsNullOrWhiteSpace(community))
+                config.Snmp.Community = community.Trim();
+
+            var timeout = Environment.GetEnvironmentVariable("SNMP_TIMEOUT_MS");
+            if (!string.IsNullOrWhiteSpace(timeout) && int.TryParse(timeout, out int timeoutMs) && timeoutMs > 0)
+                config.Snmp.Timeout = timeoutMs;
+        }
+
         private static AppConfig CreateDefaultConfig()
         {
             return new AppConfig
             {
-                Snmp = new SnmpSettings { TargetIp = "87.242.86.112", Community = "public", Timeout = 5000, Retries = 3 },
+                Snmp = new SnmpSettings { TargetIp = "127.0.0.1", Community = "public", Timeout = 5000, Retries = 3 },
                 Excel = new ExcelSettings { AutoSave = true },
                 Logging = new LoggingSettings { LogLevel = "Information", FilePath = "logs/poller.log" },
                 Export = new ExportSettings { OutputPath = "output", Formats = new[] { "csv" } }
